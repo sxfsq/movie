@@ -54,7 +54,7 @@ class _IndexHomeViewState extends State<IndexHomeView>
 
   int get cardCount {
     double screenWidth = context.mediaQuery.size.width;
-    double minCardWidth = 188;
+    double minCardWidth = 168;
     double spacing = 5;
     int count = ((screenWidth + spacing) / (minCardWidth + spacing)).floor();
     count = count.clamp(1, 6);
@@ -179,6 +179,7 @@ class _IndexHomeViewState extends State<IndexHomeView>
     super.build(context);
     return GetBuilder<HomeController>(
       builder: (homeview) => Scaffold(
+        backgroundColor: Colors.transparent,
         appBar: WindowAppBar(
           iosBackStyle: true,
           title: Zoom(
@@ -187,32 +188,39 @@ class _IndexHomeViewState extends State<IndexHomeView>
               homeview.showMirrorModel(context);
               boop.selection();
             },
-            child: Row(
-              spacing: 6,
-              children: [
-                const Icon(
-                  CupertinoIcons.bolt_circle_fill,
-                  color: Colors.white,
-                  size: 24,
-                ),
-                Text(
-                  currentTitle,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 16,
+            child: Builder(builder: (context) {
+              // var logo = homeview.currentMirrorItem.meta.logo;
+              // if (logo.isNotEmpty) {
+              //   return CachedNetworkImage(imageUrl: logo, width: 120,);
+              // }
+              return Row(
+                spacing: 6,
+                children: [
+                  Icon(
+                    CupertinoIcons.arrowtriangle_right_square_fill,
+                    color: context.isDarkMode ? Colors.white : Colors.black,
+                    size: 28,
                   ),
-                ),
-              ],
-            ),
+                  Text(
+                    currentTitle,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 21,
+                      color: context.isDarkMode ? Colors.white : Colors.black,
+                    ),
+                  ),
+                ],
+              );
+            }),
           ),
           actions: [
             Zoom(
               child: CupertinoButton(
                 padding: EdgeInsets.zero,
-                child: const Icon(
+                child: Icon(
                   CupertinoIcons.search,
                   size: 24,
-                  color: Colors.white,
+                  color: context.isDarkMode ? Colors.white : Colors.black,
                 ),
                 onPressed: () {
                   EasyLoading.dismiss();
@@ -227,10 +235,10 @@ class _IndexHomeViewState extends State<IndexHomeView>
             Zoom(
               child: CupertinoButton(
                 padding: EdgeInsets.zero,
-                child: const Icon(
-                  Icons.history,
+                child: Icon(
+                  CupertinoIcons.clock,
                   size: 24,
-                  color: Colors.white,
+                  color: context.isDarkMode ? Colors.white : Colors.black,
                 ),
                 onPressed: () {
                   EasyLoading.dismiss();
@@ -327,7 +335,10 @@ class _IndexHomeViewState extends State<IndexHomeView>
                                 ),
                                 // FIXME: use real primary color
                                 // >> theme_data _colorSchemeLightM3->primary
-                                color: isCurr ? Color(0xFF6750A4) : null,
+                                color: isCurr
+                                    ? Color(0xFF6750A4)
+                                    : (Get.isDarkMode ? '#1c1c1e' : "#f0f0f0")
+                                        .$color,
                                 child: Text(
                                   curr.name,
                                   style: TextStyle(
@@ -473,8 +484,8 @@ class _IndexHomeViewState extends State<IndexHomeView>
                                 gridDelegate:
                                     SliverWaterfallFlowDelegateWithFixedCrossAxisCount(
                                   crossAxisCount: cardCount,
-                                  crossAxisSpacing: 5.0,
-                                  mainAxisSpacing: 5.0,
+                                  crossAxisSpacing: 9.0,
+                                  mainAxisSpacing: 9.0,
                                 ),
                                 itemCount: homeview.homedata.length,
                                 itemBuilder: (BuildContext context, int index) {

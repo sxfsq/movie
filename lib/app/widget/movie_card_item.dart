@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:catmovie/app/extension.dart';
 import 'package:catmovie/app/widget/zoom.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -42,9 +43,16 @@ class MovieCardItem extends StatelessWidget {
                           width: double.infinity,
                           fit: BoxFit.cover,
                           progressIndicatorBuilder: (context, url, progress) =>
-                              Center(
-                            child: CircularProgressIndicator(
-                              value: progress.progress,
+                              DecoratedBox(
+                            decoration: BoxDecoration(
+                              color:
+                                  (context.isDarkMode ? '#1c1c1e' : "#f0f0f0")
+                                      .$color,
+                            ),
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                value: progress.progress,
+                              ),
                             ),
                           ),
                           errorWidget: (context, error, stackTrace) =>
@@ -52,23 +60,42 @@ class MovieCardItem extends StatelessWidget {
                         ),
                       ),
                       if (note.isNotEmpty)
-                        Positioned(
-                          bottom: 6,
-                          right: 6,
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                              vertical: 3,
-                              horizontal: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: .72),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              note,
-                              style: TextStyle(color: Colors.white, fontSize: 12),
-                              maxLines: 1,
+                        Positioned.fill(
+                          child: Padding(
+                            padding: EdgeInsets.only(bottom: 6, right: 6, left: 6),
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                return Align(
+                                  alignment: Alignment.bottomRight,
+                                  child: UnconstrainedBox(
+                                    alignment: Alignment.bottomRight,
+                                    child: ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                        maxWidth: constraints.maxWidth * .88,
+                                      ),
+                                      child: Container(
+                                        padding: EdgeInsets.symmetric(
+                                          vertical: 3,
+                                          horizontal: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withValues(alpha: .72),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          note,
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
                           ),
                         ),
