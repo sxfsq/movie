@@ -242,6 +242,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.12.1"
+  chinese_font_library:
+    dependency: "direct main"
+    description:
+      name: chinese_font_library
+      sha256: f6c18eb58c1514a95e4ed9a7e2f6702be1333b67e4226976b333e5918021c1df
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.2.0"
   clipboard:
     dependency: "direct main"
     description:
@@ -607,6 +615,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.3.2"
+  haptic_feedback:
+    dependency: "direct main"
+    description:
+      name: haptic_feedback
+      sha256: d3b5ad41858d18a35d317636c9cdc1cb8aef23c7b861ca5896273acc68e1a98a
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.5.1+1"
   hide_cursor:
     dependency: "direct main"
     description:

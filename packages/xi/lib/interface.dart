@@ -64,6 +64,17 @@ class VideoInfo {
   });
 }
 
+class Videos {
+  final String title;
+  // final VideoType type;
+  List<VideoInfo> datas;
+  Videos({
+    // this.type = VideoType.iframe,
+    required this.title,
+    required this.datas,
+  });
+}
+
 // 视频详情
 class VideoDetail {
   /// id
@@ -74,6 +85,12 @@ class VideoDetail {
 
   /// 介绍
   final String desc;
+
+  /// 更新时间
+  final String updateTime;
+
+  /// 备注
+  final String remark;
 
   /// 喜欢
   final int likeCount;
@@ -91,7 +108,7 @@ class VideoDetail {
   final String bigCoverImage;
 
   /// 视频列表
-  final List<VideoInfo> videos;
+  final List<Videos> videos;
 
   /// 视频信息
   /// 视频尺寸大小
@@ -113,6 +130,8 @@ class VideoDetail {
     required this.title,
     required this.extra,
     this.desc = "",
+    this.updateTime = "",
+    this.remark = "",
     this.likeCount = 0,
     this.viewCount = 0,
     this.dislikeCount = 0,
