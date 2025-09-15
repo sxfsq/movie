@@ -7,6 +7,7 @@ import 'package:after_layout/after_layout.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:catmovie/app/extension.dart';
 import 'package:catmovie/app/modules/home/controllers/home_controller.dart';
+import 'package:catmovie/app/widget/k_body.dart';
 import 'package:catmovie/app/widget/window_appbar.dart';
 import 'package:catmovie/app/widget/zoom.dart';
 import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
@@ -99,8 +100,8 @@ final Color kActiveColor = Color(0xFF6750A4);
 var scaffoldKey = GlobalKey<ScaffoldState>();
 
 // TODO(d1y): support dynamic set wallpaper
-// https://www.loliapi.com
-final String kWallpaper = "https://www.loliapi.com/acg/";
+// https://www.zichen.zone/archives/acg-api.html
+final String kWallpaper = "https://www.dmoe.cc/random.php";
 
 enum LiveSourceType {
   github,
@@ -469,9 +470,16 @@ class TVUIState extends State<TVUI>
   }
 
   @override
-  void dispose() async {
+  void setState(VoidCallback fn) {
+    if (mounted) super.setState(fn);
+  }
+
+  @override
+  void dispose() {
     _playPauseIconTimer?.cancel();
-    await player.dispose();
+    player.dispose().catchError((error) {
+      debugPrint("player dispose error: $error");
+    });
     if (GetPlatform.isDesktop) {
       hideCursor.showCursor();
       windowManager.removeListener(this);
@@ -1255,7 +1263,7 @@ class TVUIState extends State<TVUI>
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 240),
                 padding: EdgeInsets.only(
-                  bottom: homeController.showBottomNavigationBar ? 80 : 0,
+                  bottom: homeController.showBottomNavigationBar ? kDefaultAppBottomBarHeight : 0,
                 ),
                 child: Stack(
                   children: [

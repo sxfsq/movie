@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:aurora/aurora.dart';
 import 'package:catmovie/app/modules/home/views/tv.dart';
+import 'package:catmovie/app/widget/k_body.dart';
 import 'package:catmovie/app/widget/zoom.dart';
 import 'package:command_palette/command_palette.dart';
 import 'package:flutter/cupertino.dart';
@@ -34,7 +35,7 @@ class HomeView extends GetView<HomeController> {
       "color": Colors.blue,
     },
     {
-      "icon": Icons.live_tv_rounded,
+      "icon": CupertinoIcons.tv,
       "title": "电视",
       "color": Colors.orange,
     },
@@ -186,7 +187,7 @@ class HomeView extends GetView<HomeController> {
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     child: SizedBox(
-                      height: 63,
+                      height: kDefaultAppBottomBarHeight,
                       child: ClipRect(
                         child: BackdropFilter(
                           filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),

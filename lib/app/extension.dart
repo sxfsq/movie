@@ -1,7 +1,8 @@
 import 'dart:ui';
 
+import 'package:catmovie/isar/schema/category_schema.dart';
 import 'package:catmovie/isar/schema/video_history_schema.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import 'package:catmovie/isar/repo.dart';
 import 'package:catmovie/isar/schema/history_schema.dart';
 import 'package:catmovie/isar/schema/mirror_schema.dart';
@@ -35,6 +36,9 @@ extension ISettingMixin on Object {
 
   IsarCollection<VideoHistoryIsarModel> get videoHistoryAs =>
       IsarRepository().isar.videoHistoryIsarModels;
+
+  IsarCollection<CategoryIsarModel> get categoryAs =>
+      IsarRepository().isar.categoryIsarModels;
 
   Isar get isarInstance => IsarRepository().isar;
 

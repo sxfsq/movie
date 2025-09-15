@@ -24,7 +24,8 @@ import 'package:catmovie/app/modules/home/controllers/home_controller.dart';
 import 'package:catmovie/app/modules/home/views/parse_vip_manage.dart';
 import 'package:catmovie/app/widget/window_appbar.dart';
 import 'package:catmovie/widget/simple_html/flutter_html.dart';
-import 'package:isar/isar.dart';
+import 'package:haptic_feedback/haptic_feedback.dart';
+import 'package:isar_community/isar.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:path_provider/path_provider.dart';
@@ -157,7 +158,11 @@ class _PlayViewState extends State<PlayView> with AfterLayoutMixin {
           logLevel: logLevel,
         ),
       );
-      controller = VideoController(player!);
+      controller = VideoController(player!, onSpeedUpChanged: (flag) {
+        if (flag) {
+          boop.call(HapticsType.medium);
+        }
+      });
       if (player!.platform is NativePlayer) {
         var pp = player!.platform as NativePlayer;
         var temp = await _tempPath();
@@ -198,6 +203,9 @@ class _PlayViewState extends State<PlayView> with AfterLayoutMixin {
     super.dispose();
   }
 
+  // NOTE(d1y): 是否显示封面(只在未播放过时展示)
+  var showVideoCover = true;
+
   Future<void> handlePlay(int tabIndex, int index) async {
     var realPlaylist = playlist[tabIndex].datas;
     var curr = playlist[tabIndex].datas[index];
@@ -219,6 +227,8 @@ class _PlayViewState extends State<PlayView> with AfterLayoutMixin {
     if (isUpSort) {
       realIndex = getReversalIndex(realPlaylist, index);
     }
+    showVideoCover = false;
+    setState(() {});
     Future.delayed(const Duration(milliseconds: 124), () {
       play.updatePlayState(tabIndex, index, realIndex, curr.name);
     });
@@ -245,7 +255,7 @@ class _PlayViewState extends State<PlayView> with AfterLayoutMixin {
   }
 
   Widget _buildCoverImage() {
-    return Positioned.fill(
+    return IgnorePointer(
       child: Stack(
         children: [
           Positioned.fill(
@@ -280,6 +290,8 @@ class _PlayViewState extends State<PlayView> with AfterLayoutMixin {
     );
   }
 
+  double lastScrollOffset = 0;
+
   void showMediaKitPlaylist() {
     var fw = context.mediaQuery.size.width;
     var w = fw * .32;
@@ -292,8 +304,13 @@ class _PlayViewState extends State<PlayView> with AfterLayoutMixin {
         list: list,
         sort: playlistSort,
         index: play.playState.index,
+        restoreOffset: lastScrollOffset,
+        onScroll: (offset) {
+          lastScrollOffset = offset;
+        },
         onTap: (index) {
           handlePlay(play.tabIndex, index);
+          Get.back();
         },
         onSortTap: () {
           handleSortPlaylist();
@@ -322,9 +339,9 @@ class _PlayViewState extends State<PlayView> with AfterLayoutMixin {
       ),
     );
     Widget videoView = Video(
-      fill: Colors.black.withValues(alpha: .21),
       fit: mediaKitFit,
-      placeholder: _buildCoverImage(),
+      fill: Colors.black,
+      placeholder: showVideoCover ? _buildCoverImage() : null,
       controller: controller,
       onEnterFullscreen: () async {
         await defaultEnterNativeFullscreen();
@@ -338,7 +355,7 @@ class _PlayViewState extends State<PlayView> with AfterLayoutMixin {
       },
       onExitFullscreen: () async {
         await defaultExitNativeFullscreen();
-        if (GetPlatform.isMobile) {
+        if (GetPlatform.isIOS) {
           SystemChrome.setPreferredOrientations(
             [
               DeviceOrientation.portraitUp,
@@ -409,8 +426,6 @@ class _PlayViewState extends State<PlayView> with AfterLayoutMixin {
             vertical: 24,
             horizontal: 12,
           ),
-          brightnessGesture: true,
-          volumeGesture: true,
           seekGesture: true,
           seekOnDoubleTap: true,
           speedUpOnLongPress: true,
@@ -436,23 +451,18 @@ class _PlayViewState extends State<PlayView> with AfterLayoutMixin {
     return Positioned.fill(child: videoView);
   }
 
-  Widget _oneView(bool isDesktop) {
-    var cardHeight = context.mediaQuery.size.width * (6 / 12);
-    var hh = context.mediaQuery.size.height * .51;
-    if (cardHeight >= hh) cardHeight = hh;
-    if (cardHeight <= 200) cardHeight = 240;
-    return SizedBox(
-      width: isDesktop ? context.mediaQuery.size.width * .72 : double.infinity,
-      height: isDesktop ? double.infinity : cardHeight,
-      child: Stack(
-        children: [
-          if (videoKernel.isMediaKit) _buildMediaKit() else _buildCoverImage(),
-        ],
-      ),
+  Widget _oneView(bool isLargeScreen) {
+    return Stack(
+      children: [
+        if (videoKernel.isMediaKit)
+          _buildMediaKit()
+        else
+          Positioned.fill(child: _buildCoverImage()),
+      ],
     );
   }
 
-  Widget _twoView(bool isDesktop) {
+  Widget _twoView(bool isLargeScreen) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -574,7 +584,7 @@ class _PlayViewState extends State<PlayView> with AfterLayoutMixin {
               }
               return GridView.builder(
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: isDesktop ? 2 : playListGridCount,
+                  crossAxisCount: isLargeScreen ? 2 : playListGridCount,
                   mainAxisExtent: 48,
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
@@ -709,34 +719,23 @@ class _PlayViewState extends State<PlayView> with AfterLayoutMixin {
     var width = context.mediaQuery.size.width;
     var height = context.mediaQuery.size.height;
     var isPad = (width / height) > 1.38; // 宽高比大于 1.38 认为是 Pad(大屏)
-    var isDesktop = width >= 720 && (GetPlatform.isDesktop || isPad);
-    late Widget body;
-    if (isDesktop) {
-      body = Row(
-        mainAxisAlignment: MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _oneView(true),
-          if (isDesktop)
-            Container(
-              width: 1,
-              height: double.infinity,
-              color: (context.isDarkMode ? Colors.white : Colors.black)
-                  .withValues(alpha: .12),
-            ),
-          Expanded(child: _twoView(true)),
-        ],
-      );
-    } else {
-      body = Column(
-        mainAxisAlignment: MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _oneView(false),
-          Expanded(child: _twoView(false)),
-        ],
-      );
-    }
+    var isLargeScreen = width > 720 && isPad;
+    var one = isLargeScreen ? 16 : 9;
+    var two = isLargeScreen ? 9 : 16;
+    var sep = Container(
+      width: 1,
+      height: double.infinity,
+      color: (context.isDarkMode ? Colors.white : Colors.black)
+          .withValues(alpha: .12),
+    );
+    Widget body = Flex(
+      direction: isLargeScreen ? Axis.horizontal : Axis.vertical,
+      children: [
+        Expanded(flex: one, child: _oneView(isLargeScreen)),
+        if (isLargeScreen) sep,
+        Expanded(flex: two, child: _twoView(isLargeScreen)),
+      ],
+    );
     double topbarHeight = GetPlatform.isDesktop ? 56 : 48;
     return Stack(
       children: [
@@ -747,7 +746,7 @@ class _PlayViewState extends State<PlayView> with AfterLayoutMixin {
         Positioned(
           left: 0,
           top: 0,
-          width: isDesktop ? width * .72 : width,
+          width: width,
           height: topbarHeight,
           child: MoveWindow(
             child: Container(
@@ -922,15 +921,13 @@ class _PlayViewState extends State<PlayView> with AfterLayoutMixin {
                   child: Stack(
                     children: [
                       Positioned.fill(
-                        child: Positioned.fill(
-                          child: Aurora(
-                            size: 88,
-                            colors: [
-                              Color(0xffc2e59c).withValues(alpha: .24),
-                              Color(0xff64b3f4).withValues(alpha: .24)
-                            ],
-                            blur: 88,
-                          ),
+                        child: Aurora(
+                          size: 88,
+                          colors: [
+                            Color(0xffc2e59c).withValues(alpha: .24),
+                            Color(0xff64b3f4).withValues(alpha: .24)
+                          ],
+                          blur: 88,
                         ),
                       ),
                       Positioned.fill(child: _realBodyView()),
@@ -1074,8 +1071,11 @@ class MediaKitPlaylist extends StatefulWidget {
     required this.list,
     required this.sort,
     required this.index,
+    required this.restoreOffset,
     this.onTap,
     this.onSortTap,
+    this.onScroll,
+    this.lateShowDuration = const Duration(milliseconds: 240),
   });
 
   final double width;
@@ -1084,6 +1084,9 @@ class MediaKitPlaylist extends StatefulWidget {
   final int index;
   final ValueChanged<int>? onTap;
   final VoidCallback? onSortTap;
+  final ValueChanged<double>? onScroll;
+  final double restoreOffset;
+  final Duration lateShowDuration;
 
   @override
   State<MediaKitPlaylist> createState() => _MediaKitPlaylistState();
@@ -1095,12 +1098,33 @@ class _MediaKitPlaylistState extends State<MediaKitPlaylist>
   List<VideoInfo> list = [];
   int index = -1;
 
+  ScrollController controller = ScrollController();
+
+  bool show = false;
+
   @override
   FutureOr<void> afterFirstLayout(BuildContext context) {
+    show = true;
     sort = widget.sort;
     index = widget.index;
     list = widget.list;
     setState(() {});
+    controller.addListener(() {
+      var offset = controller.offset;
+      widget.onScroll?.call(offset);
+    });
+    restoreScrollPosition();
+  }
+
+  void restoreScrollPosition() {
+    var offset = widget.restoreOffset;
+    controller.jumpTo(offset);
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
   }
 
   void handleSortPlaylist() {
@@ -1111,138 +1135,160 @@ class _MediaKitPlaylistState extends State<MediaKitPlaylist>
     widget.onSortTap?.call();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Spacer(),
-        Container(
-          width: widget.width,
-          height: double.infinity,
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: .42),
-          ),
-          child: ClipRRect(
-            child: Stack(
-              children: [
-                if (GetPlatform.isDesktop)
-                  Positioned.fill(
-                    child: ClipRRect(
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color:
-                                Theme.of(context).brightness == Brightness.dark
-                                    ? Colors.black.withValues(alpha: 0.38)
-                                    : Colors.white.withValues(alpha: 0.24),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.21),
-                              width: 1,
-                            ),
-                          ),
+  Widget _buildRealBody() {
+    return Container(
+      width: widget.width,
+      height: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: .72),
+      ),
+      child: ClipRRect(
+        child: Stack(
+          children: [
+            if (GetPlatform.isDesktop)
+              Positioned.fill(
+                child: ClipRRect(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.black.withValues(alpha: 0.38)
+                            : Colors.white.withValues(alpha: 0.24),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.21),
+                          width: 1,
                         ),
                       ),
                     ),
                   ),
-                Positioned.fill(
-                  child: Column(
-                    children: [
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: 12),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                ),
+              ),
+            Positioned.fill(
+              child: Column(
+                children: [
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          spacing: 3,
                           children: [
-                            Row(
-                              spacing: 3,
-                              children: [
-                                Text(
-                                  "选集",
-                                  style: TextStyle(
-                                      fontSize: 16, color: Colors.white),
-                                ),
-                                Opacity(
-                                  opacity: .68,
-                                  child: Text(
-                                    "(共${list.length}集)",
-                                    style: TextStyle(
-                                        fontSize: 14, color: Colors.white),
-                                  ),
-                                ),
-                              ],
+                            Text(
+                              "选集",
+                              style:
+                                  TextStyle(fontSize: 16, color: Colors.white),
                             ),
-                            IconButton(
-                              onPressed: handleSortPlaylist,
-                              icon: Row(
-                                spacing: 6,
-                                children: [
-                                  Icon(sort.icon, color: Colors.white),
-                                  Text(
-                                    sort.name,
-                                    style: TextStyle(color: Colors.white),
-                                  ),
-                                ],
+                            Opacity(
+                              opacity: .68,
+                              child: Text(
+                                "(共${list.length}集)",
+                                style: TextStyle(
+                                    fontSize: 14, color: Colors.white),
                               ),
                             ),
                           ],
                         ),
-                      ),
-                      Expanded(
-                        child: SmoothListView(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 12,
-                            horizontal: 6,
+                        IconButton(
+                          onPressed: handleSortPlaylist,
+                          icon: Row(
+                            spacing: 6,
+                            children: [
+                              Icon(sort.icon, color: Colors.white),
+                              Text(
+                                sort.name,
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ],
                           ),
-                          duration: kSmoothListViewDuration,
-                          children: list.map((item) {
-                            var currIndex = list.indexOf(item);
-                            var isCurr = currIndex == index;
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 6,
-                                horizontal: 9,
-                              ),
-                              child: Material(
-                                color: Colors.transparent,
-                                child: ListTile(
-                                  shape: RoundedRectangleBorder(
-                                    side: BorderSide(
-                                      width: 1,
-                                      color: Colors.grey.withValues(
-                                        alpha: isCurr ? .88 : .24,
-                                      ),
-                                    ),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  dense: true,
-                                  mouseCursor: SystemMouseCursors.click,
-                                  selected: isCurr,
-                                  selectedTileColor: kActiveColor,
-                                  hoverColor:
-                                      Colors.white.withValues(alpha: 0.24),
-                                  title: Text(
-                                    item.name,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(color: Colors.white),
-                                  ),
-                                  onTap: () {
-                                    index = currIndex;
-                                    if (mounted) setState(() {});
-                                    widget.onTap?.call(currIndex);
-                                  },
-                                ),
-                              ),
-                            );
-                          }).toList(),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                  Expanded(
+                    child: ListView(
+                      controller: controller,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                        horizontal: 6,
+                      ),
+                      children: list.map((item) {
+                        var currIndex = list.indexOf(item);
+                        var isCurr = currIndex == index;
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 6,
+                            horizontal: 9,
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: ListTile(
+                              shape: RoundedRectangleBorder(
+                                side: BorderSide(
+                                  width: 1,
+                                  color: Colors.grey.withValues(
+                                    alpha: isCurr ? .88 : .24,
+                                  ),
+                                ),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              dense: true,
+                              mouseCursor: SystemMouseCursors.click,
+                              selected: isCurr,
+                              selectedTileColor: kActiveColor,
+                              hoverColor: Colors.white.withValues(alpha: 0.24),
+                              title: Text(
+                                item.name,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(color: Colors.white),
+                              ),
+                              onTap: () {
+                                index = currIndex;
+                                if (mounted) setState(() {});
+                                widget.onTap?.call(currIndex);
+                              },
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: SizedBox(
+            width: double.infinity,
+            height: double.infinity,
+            child: GestureDetector(
+              onTap: () {
+                show = false;
+                if (mounted) setState(() {});
+                Get.back();
+              },
             ),
           ),
+        ),
+        AnimatedPositioned(
+          top: 0,
+          right: show ? 0 : -widget.width,
+          bottom: 0,
+          duration: widget.lateShowDuration,
+          curve: Curves.easeInOut,
+          width: widget.width,
+          child: _buildRealBody(),
         ),
       ],
     );

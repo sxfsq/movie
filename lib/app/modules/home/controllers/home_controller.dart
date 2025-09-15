@@ -1,10 +1,11 @@
 import 'package:catmovie/utils/boop.dart';
 import 'package:command_palette/command_palette.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:get/get.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:catmovie/app/modules/home/views/mirrortable.dart';
 import 'package:catmovie/app/shared/bus.dart';
@@ -14,6 +15,7 @@ import 'package:catmovie/isar/repo.dart';
 import 'package:catmovie/shared/manage.dart';
 import 'package:catmovie/isar/schema/parse_schema.dart';
 import 'package:catmovie/shared/enum.dart';
+import 'package:nuts_activity_indicator/nuts_activity_indicator.dart';
 import 'package:protocol_handler/protocol_handler.dart';
 import 'package:pull_to_refresh_flutter3/pull_to_refresh_flutter3.dart';
 
@@ -22,9 +24,6 @@ import 'package:window_manager/window_manager.dart';
 import 'package:xi/xi.dart';
 
 const kSmoothListViewDuration = Duration(milliseconds: 210);
-
-const kAllCategoryPoint = '-114514';
-var kAllCategoryData = SourceSpiderQueryCategory('全部', kAllCategoryPoint);
 
 /// 历史记录处理类型
 enum UpdateSearchHistoryType {
@@ -38,16 +37,49 @@ enum UpdateSearchHistoryType {
   clean
 }
 
+Widget kActivityIndicator = NutsActivityIndicator(
+      tickCount: 12,
+      radius: 12,
+      relativeWidth: .72,
+    );
+
 Function showLoading(String msg) {
   EasyLoading.show(
-    status: msg,
-    indicator: Image.asset(
-      "assets/loading.gif",
-      width: 120,
-      height: 120,
-    ),
+    // status: msg,
+    // indicator: Image.asset(
+    //   "assets/loading.gif",
+    //   width: 120,
+    //   height: 120,
+    // ),
+    indicator: kActivityIndicator,
   );
   return EasyLoading.dismiss;
+}
+
+Future<bool> showLoadingPlaceholderTask(AsyncCallback task) async {
+  var errMsg = "";
+  try {
+    Get.dialog(
+      Center(
+        // child: Image.asset(
+        //   "assets/loading.gif",
+        //   width: 120,
+        //   height: 120,
+        // ),
+        child: kActivityIndicator,
+      ),
+    );
+    await task();
+  } catch (e) {
+    errMsg = e.toString();
+  } finally {
+    Get.back();
+  }
+  if (errMsg.isNotEmpty) {
+    EasyLoading.showError(errMsg);
+    return false;
+  }
+  return true;
 }
 
 class HomeController extends GetxController
@@ -79,7 +111,7 @@ class HomeController extends GetxController
     return parseVipList[currentParseVipIndex];
   }
 
-  final mirrorCategoryPool = MirrorCategoryPool();
+  final cacheCategory = CacheWithCategory();
 
   String get currentMirrorItemId {
     if (mirrorListIsEmpty) return "";
@@ -87,21 +119,19 @@ class HomeController extends GetxController
   }
 
   List<SourceSpiderQueryCategory> get currentCategoryer {
-    var data = mirrorCategoryPool.data(currentMirrorItemId);
-    if (data.isNotEmpty) {
-      return [kAllCategoryData, ...data];
-    }
+    var data = cacheCategory.data(currentMirrorItemId);
     return data;
   }
 
   bool get currentHasCategoryer {
-    return mirrorCategoryPool.has(currentMirrorItemId);
+    return cacheCategory.has(currentMirrorItemId);
   }
 
-  SourceSpiderQueryCategory? currentCategoryerNow = kAllCategoryData;
+  SourceSpiderQueryCategory? currentCategoryerNow;
 
   void setCurrentCategoryerNow(SourceSpiderQueryCategory category) {
     currentCategoryerNow = category;
+    cacheCategory.setLastUsed(currentMirrorItem.meta.id, category);
     updateHomeData(isFirst: true);
     update();
   }
@@ -155,7 +185,8 @@ class HomeController extends GetxController
   void easyCleanCacheHook() {
     _isNsfw = false;
     _cacheMirrorIndex = -1;
-    mirrorCategoryPool.clean();
+    cacheCategory.clean();
+    cacheCategory.cleanupLastUsed();
     if (_parseVipList.isNotEmpty) {
       _parseVipList = [];
       update();
@@ -231,17 +262,21 @@ class HomeController extends GetxController
   }
 
   void refreshOnLoading() async {
+    boop.selection();
     try {
       page++;
       update();
       await updateHomeData();
       refreshController.loadComplete();
+      boop.success();
     } catch (e) {
       refreshController.loadFailed();
+      boop.error();
     }
   }
 
   void refreshOnRefresh() async {
+    boop.selection();
     try {
       await updateHomeData(isFirst: true, missIsLoading: true);
       refreshController.refreshCompleted();
@@ -342,6 +377,7 @@ class HomeController extends GetxController
     protocolHandler.addListener(this);
     updateWindowLastSize();
     WidgetsBinding.instance.addObserver(this);
+    cacheCategory.init();
     updateNsfwSetting();
     updateHomeData(isFirst: true);
     initCacheMirrorTableScrollControllerOffset();
@@ -361,24 +397,23 @@ class HomeController extends GetxController
     update();
   }
 
-  Future<String?> syncCurrentCategoryer() async {
+  Future<SourceSpiderQueryCategory?> syncCurrentCategoryer() async {
     try {
       if (mirrorListIsEmpty) return null;
       var category = await currentMirrorItem.getCategory();
 
-      /// NOTE(d1y): 为空也是一种错误的表现
+      // NOTE(d1y): 为空也是一种错误的表现
       if (category.isEmpty) {
-        mirrorCategoryPool.fetchCountPP(currentMirrorItemId);
+        cacheCategory.fetchCountPP(currentMirrorItemId);
         return null;
       }
-      mirrorCategoryPool.put(currentMirrorItemId, category);
-      // XXX(d1y): 默认使用全部分类
-      currentCategoryerNow = kAllCategoryData;
+      cacheCategory.put(currentMirrorItemId, category);
+      currentCategoryerNow = category.first;
       update();
-      return kAllCategoryData.id;
+      return category.first;
     } catch (e) {
       if (currentMirrorItemId.isNotEmpty) {
-        mirrorCategoryPool.fetchCountPP(currentMirrorItemId);
+        cacheCategory.fetchCountPP(currentMirrorItemId);
       }
       debugPrint(e.toString());
       return null;
@@ -395,29 +430,36 @@ class HomeController extends GetxController
 
     var onceCategory = "";
     if (currentCategoryerNow != null) {
-      var id = currentCategoryerNow!.id;
-      onceCategory = id;
+      onceCategory = currentCategoryerNow!.id;
     }
     if (isFirst) {
       var dispose = showLoading("加载分类中");
-      var isNext = !currentHasCategoryer &&
-          !mirrorCategoryPool.fetchCountAlreadyMax(currentMirrorItemId);
 
-      /// NOTE(d1y): 不存在分类并且请求次数没有超过阈值
-      if (isNext) {
+      // NOTE(d1y): 不存在分类并且请求次数没有超过阈值
+      var needFetch = !currentHasCategoryer &&
+          !cacheCategory.fetchCountAlreadyMax(currentMirrorItemId);
+
+      if (needFetch) {
         try {
-          onceCategory = await syncCurrentCategoryer() ?? "";
+          var category = (await syncCurrentCategoryer()) ?? kDefaultAllCategory;
+          onceCategory = category.id;
         } catch (e) {
           debugPrint(e.toString());
         } finally {
           dispose();
         }
+      } else {
+        var lastUsed = cacheCategory.getLastUsed(currentMirrorItem.meta.id);
+        if (lastUsed != null) {
+          currentCategoryerNow = lastUsed;
+          update();
+        }
+        if (currentCategoryerNow == null) {
+          currentCategoryerNow = currentCategoryer.first;
+          update();
+        }
+        onceCategory = currentCategoryerNow!.id;
       }
-    }
-
-    /// XXX(d1y): 但凡是个正常一点的站点都不会用 `-114514` 作为分类的
-    if (onceCategory == kAllCategoryPoint) {
-      onceCategory = "";
     }
 
     /// 如果 [indexHomeLoadDataErrorMessage] 错误栈有内容的话

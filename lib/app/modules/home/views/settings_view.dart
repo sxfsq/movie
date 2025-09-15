@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:catmovie/app/modules/home/views/auto_update.dart';
+import 'package:catmovie/app/widget/k_body.dart';
 import 'package:catmovie/app/widget/window_appbar.dart';
 import 'package:catmovie/app/widget/zoom.dart';
 import 'package:catmovie/utils/boop.dart';
@@ -8,6 +9,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
+import 'package:flutter_svg/svg.dart';
 
 import 'package:get/get.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
@@ -24,6 +26,12 @@ import 'package:pull_down_button/pull_down_button.dart';
 import 'package:settings_ui/settings_ui.dart';
 import 'package:xi/models/mac_cms/source_data.dart';
 import 'package:xi/xi.dart';
+
+const kTelegramGroup = "https://t.me/catmovie1145";
+
+const kGithubIconSvg = r"""
+<svg t="1757744978460" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="13267" width="200" height="200"><path d="M512 42.666667A464.64 464.64 0 0 0 42.666667 502.186667 460.373333 460.373333 0 0 0 363.52 938.666667c23.466667 4.266667 32-9.813333 32-22.186667v-78.08c-130.56 27.733333-158.293333-61.44-158.293333-61.44a122.026667 122.026667 0 0 0-52.053334-67.413333c-42.666667-28.16 3.413333-27.733333 3.413334-27.733334a98.56 98.56 0 0 1 71.68 47.36 101.12 101.12 0 0 0 136.533333 37.973334 99.413333 99.413333 0 0 1 29.866667-61.44c-104.106667-11.52-213.333333-50.773333-213.333334-226.986667a177.066667 177.066667 0 0 1 47.36-124.16 161.28 161.28 0 0 1 4.693334-121.173333s39.68-12.373333 128 46.933333a455.68 455.68 0 0 1 234.666666 0c89.6-59.306667 128-46.933333 128-46.933333a161.28 161.28 0 0 1 4.693334 121.173333A177.066667 177.066667 0 0 1 810.666667 477.866667c0 176.64-110.08 215.466667-213.333334 226.986666a106.666667 106.666667 0 0 1 32 85.333334v125.866666c0 14.933333 8.533333 26.88 32 22.186667A460.8 460.8 0 0 0 981.333333 502.186667 464.64 464.64 0 0 0 512 42.666667" fill="#231F20" p-id="13268"></path></svg>
+""";
 
 enum GetBackResultType {
   /// 失败
@@ -137,6 +145,7 @@ class _SettingsViewState extends State<SettingsView>
     if (!onlyUpdate) {
       showNSFW = flag;
     }
+    boop.selection();
     home.update();
   }
 
@@ -277,6 +286,7 @@ class _SettingsViewState extends State<SettingsView>
   }
 
   void handleCleanCache() {
+    boop.success();
     home.clearCache();
     home.confirmAlert(
       "已删除缓存, 部分内容重启之后生效!",
@@ -308,6 +318,7 @@ class _SettingsViewState extends State<SettingsView>
         PullDownMenuItem.selectable(
           selected: VideoKernel.iina == _videoKernel,
           onTap: () {
+            boop.success();
             final bool isInstall = checkInstalledIINA();
             if (!isInstall) {
               EasyLoading.showError("未安装IINA, 请先安装!");
@@ -392,6 +403,7 @@ class _SettingsViewState extends State<SettingsView>
   }
 
   void handleCleanCacheBefore(BuildContext ctx) {
+    boop.warning();
     showCupertinoDialog(
       builder: (BuildContext context) => CupertinoAlertDialog(
         title: const Text('提示'),
@@ -405,6 +417,7 @@ class _SettingsViewState extends State<SettingsView>
               ),
             ),
             onPressed: () {
+              boop.selection();
               Get.back();
             },
           ),
@@ -441,141 +454,208 @@ class _SettingsViewState extends State<SettingsView>
         centerTitle: true,
         actions: [SizedBox.shrink()],
       ),
-      body: SettingsList(
-        applicationType: ApplicationType.cupertino,
-        lightTheme: SettingsThemeData(settingsListBackground: Colors.transparent),
-        darkTheme: SettingsThemeData(settingsListBackground: Colors.transparent),
-        sections: [
-          SettingsSection(
-            title: Text('常规设置'),
-            tiles: <SettingsTile>[
-              if (!autoDarkMode)
+      body: ScrollConfiguration(
+        behavior: ScrollBehavior().copyWith(scrollbars: false),
+        child: SettingsList(
+          applicationType: ApplicationType.cupertino,
+          lightTheme:
+              SettingsThemeData(settingsListBackground: Colors.transparent),
+          darkTheme:
+              SettingsThemeData(settingsListBackground: Colors.transparent),
+          sections: [
+            SettingsSection(
+              title: Text('常规设置'),
+              tiles: <SettingsTile>[
+                if (!autoDarkMode)
+                  SettingsTile.switchTile(
+                    onToggle: (value) {
+                      isDark = value;
+                      boop.success();
+                    },
+                    onPressed: (cx) {
+                      isDark = !isDark;
+                      boop.success();
+                    },
+                    initialValue: isDark,
+                    leading: Icon(Icons.settings_brightness),
+                    title: Text('深色'),
+                  ),
                 SettingsTile.switchTile(
                   onToggle: (value) {
-                    isDark = value;
+                    autoDarkMode = value;
+                    boop.success();
                   },
-                  initialValue: isDark,
-                  leading: Icon(Icons.settings_brightness),
-                  title: Text('深色'),
+                  onPressed: (cx) {
+                    autoDarkMode = !autoDarkMode;
+                    boop.success();
+                  },
+                  initialValue: autoDarkMode,
+                  leading: Icon(CupertinoIcons.moon_stars_fill),
+                  title: Text('深色跟随系统'),
                 ),
-              SettingsTile.switchTile(
-                onToggle: (value) {
-                  autoDarkMode = value;
-                },
-                initialValue: autoDarkMode,
-                leading: Icon(CupertinoIcons.moon_stars_fill),
-                title: Text('深色跟随系统'),
-              ),
-              SettingsTile.navigation(
-                leading: Icon(Icons.add_box),
-                title: Text('解析线路管理'),
-                onPressed: (cx) {
-                  EasyLoading.dismiss();
-                  Get.to(() => const ParseVipManagePageView());
-                },
-                value: SimpleTag(text: parseVipListWithText),
-              ),
-              SettingsTile.navigation(
-                leading: Icon(Icons.video_library),
-                title: Text('视频源管理'),
-                onPressed: (cx) {
-                  EasyLoading.dismiss();
-                  handleSourceHelp();
-                },
-                value: SimpleTag(text: mirrorLengthWithText),
-              ),
-              SettingsTile(
-                leading: Icon(CupertinoIcons.macwindow),
-                title: Text("播放器内核"),
-                onPressed: (cx) {
-                  final RenderBox renderBox = kVideoKernelBtnKey.currentContext!
-                      .findRenderObject() as RenderBox;
-                  final Offset btnPosition =
-                      renderBox.localToGlobal(Offset.zero);
-                  final Size btnSize = renderBox.size;
-                  final double targetHeight = btnSize.height;
-                  final Rect targetRect = Rect.fromLTWH(
-                    btnPosition.dx - 6,
-                    btnPosition.dy + 6,
-                    btnSize.width,
-                    targetHeight,
-                  );
-                  showPullDownMenu(
-                    context: cx,
-                    items: _buildVideoKernel(),
-                    position: targetRect,
-                  );
-                },
-                trailing: PullDownButton(
-                  key: kVideoKernelBtnKey,
-                  menuOffset: 9,
-                  itemBuilder: (cx) {
-                    return _buildVideoKernel();
+                SettingsTile.navigation(
+                  leading: Icon(Icons.add_box),
+                  title: Text('解析线路管理'),
+                  onPressed: (cx) {
+                    EasyLoading.dismiss();
+                    boop.selection();
+                    Get.to(() => const ParseVipManagePageView());
                   },
-                  buttonBuilder: (cx, showMenu) {
-                    return CupertinoButton(
-                      padding: EdgeInsets.zero,
-                      onPressed: () {
-                        EasyLoading.dismiss();
-                        showMenu();
-                      },
-                      child: Text(_videoKernel.name),
+                  value: SimpleTag(text: parseVipListWithText),
+                ),
+                SettingsTile.navigation(
+                  leading: Icon(Icons.video_library),
+                  title: Text('视频源管理'),
+                  onPressed: (cx) {
+                    EasyLoading.dismiss();
+                    boop.selection();
+                    handleSourceHelp();
+                  },
+                  value: SimpleTag(text: mirrorLengthWithText),
+                ),
+                SettingsTile(
+                  leading: Icon(CupertinoIcons.macwindow),
+                  title: Text("播放器内核"),
+                  onPressed: (cx) {
+                    final RenderBox renderBox =
+                        kVideoKernelBtnKey.currentContext!.findRenderObject()
+                            as RenderBox;
+                    final Offset btnPosition =
+                        renderBox.localToGlobal(Offset.zero);
+                    final Size btnSize = renderBox.size;
+                    final double targetHeight = btnSize.height;
+                    final Rect targetRect = Rect.fromLTWH(
+                      btnPosition.dx - 6,
+                      btnPosition.dy + 6,
+                      btnSize.width,
+                      targetHeight,
+                    );
+                    boop.selection();
+                    showPullDownMenu(
+                      context: cx,
+                      items: _buildVideoKernel(),
+                      position: targetRect,
+                    );
+                  },
+                  trailing: PullDownButton(
+                    key: kVideoKernelBtnKey,
+                    menuOffset: 9,
+                    itemBuilder: (cx) {
+                      return _buildVideoKernel();
+                    },
+                    buttonBuilder: (cx, showMenu) {
+                      return CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        onPressed: () {
+                          EasyLoading.dismiss();
+                          boop.selection();
+                          showMenu();
+                        },
+                        child: Text(_videoKernel.name),
+                      );
+                    },
+                  ),
+                ),
+                SettingsTile.switchTile(
+                  onToggle: updateNSFW,
+                  onPressed: (cx) {
+                    boop.selection();
+                    updateNSFW(!showNSFW);
+                  },
+                  initialValue: home.isNsfw,
+                  leading: Builder(builder: (context) {
+                    return SvgPicture.string(
+                      r"""
+      <svg t="1757687096526" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="7270" width="200" height="200"><path d="M624.298042 931.498418a80.895919 80.895919 0 0 1-58.026608 24.234642h-108.543892a80.895919 80.895919 0 0 1-58.026608-24.234642 34.133299 34.133299 0 0 0-48.469285 48.469285A150.186516 150.186516 0 0 0 457.727542 1023.999659h108.543892a150.869182 150.869182 0 0 0 106.495893-44.031956 34.133299 34.133299 0 0 0-48.469285-48.469285zM989.865677 477.866871h-76.799923L798.036535 74.411275A102.399898 102.399898 0 0 0 699.391301 0.000683h-64.170603a102.399898 102.399898 0 0 0-57.00261 17.066649l-47.103952 31.743969a34.133299 34.133299 0 0 1-37.887963 0L445.780888 17.067332a102.399898 102.399898 0 0 0-57.00261-17.066649H324.607675a102.399898 102.399898 0 0 0-98.645234 74.410592L110.933222 477.866871H34.133299a34.133299 34.133299 0 0 0 0 68.266599h955.732378a34.133299 34.133299 0 0 0 0-68.266599zM291.839708 93.184589a34.133299 34.133299 0 0 1 34.133299-24.917308h64.170603a34.133299 34.133299 0 0 1 19.114647 5.802661l47.445286 31.402635a102.399898 102.399898 0 0 0 113.322554 0l47.445286-31.402635a34.133299 34.133299 0 0 1 17.749315-5.802661h64.170603a34.133299 34.133299 0 0 1 34.133299 24.575975L803.15653 341.333675H220.842446zM181.930485 477.866871l19.45598-68.266598h621.226046l19.45598 68.266598zM887.465779 648.533367h-3.41333a91.477242 91.477242 0 0 0-89.087911-68.266598h-156.33051a91.818575 91.818575 0 0 0-88.746578 68.266598h-75.775924a91.818575 91.818575 0 0 0-88.746578-68.266598H229.034438a91.135909 91.135909 0 0 0-88.746578 68.266598H136.533197a34.133299 34.133299 0 0 0 0 68.266599v44.031956A92.501241 92.501241 0 0 0 229.034438 853.333163h115.370551a92.501241 92.501241 0 0 0 76.799923-41.301292L462.506204 750.933265a86.015914 86.015914 0 0 0 13.311987-34.133299h72.362594a81.919918 81.919918 0 0 0 13.65332 34.133299l40.959959 61.781272A91.818575 91.818575 0 0 0 679.593987 853.333163h115.370551A92.501241 92.501241 0 0 0 887.465779 760.831922V716.799966a34.133299 34.133299 0 0 0 0-68.266599z m-477.866189 50.517283a24.575975 24.575975 0 0 1-4.095996 13.65332l-40.959959 61.439939a24.917308 24.917308 0 0 1-20.138646 10.922655H229.034438a24.234642 24.234642 0 0 1-24.234643-24.234642v-88.063912a24.575975 24.575975 0 0 1 24.234643-24.234643h156.33051a24.234642 24.234642 0 0 1 24.234642 24.234643z m409.599591 61.781272a24.234642 24.234642 0 0 1-24.234643 24.234642h-115.370551a24.234642 24.234642 0 0 1-19.797313-10.581322l-41.301292-62.122605a22.86931 22.86931 0 0 1-4.095996-13.311987v-26.28264a24.234642 24.234642 0 0 1 24.234642-24.234643h156.33051a24.575975 24.575975 0 0 1 24.234643 24.234643z" fill="#0182DF" p-id="7271"></path></svg>
+      """,
+                      colorFilter: ColorFilter.mode(
+                        SettingsTheme.of(context).themeData.leadingIconsColor ??
+                            Colors.transparent,
+                        BlendMode.srcIn,
+                      ),
+                      width: 24,
+                      height: 24,
+                    );
+                  }),
+                  title: Text('绅士模式'),
+                ),
+              ],
+            ),
+            SettingsSection(
+              title: Text('其他设置'),
+              tiles: <AbstractSettingsTile>[
+                SettingsTile.navigation(
+                  leading: Icon(CupertinoIcons.refresh_circled_solid),
+                  title: Text('应用更新'),
+                  onPressed: (cx) {
+                    boop.selection();
+                    showCupertinoModalBottomSheet(
+                      context: cx,
+                      builder: (_) => AutoUpdate(),
                     );
                   },
                 ),
-              ),
-              SettingsTile.switchTile(
-                onToggle: updateNSFW,
-                initialValue: home.isNsfw,
-                leading: Icon(CupertinoIcons.hammer_fill),
-                title: Text('成人模式'),
-              ),
-            ],
-          ),
-          SettingsSection(
-            title: Text('其他设置'),
-            tiles: <AbstractSettingsTile>[
-              SettingsTile.navigation(
-                leading: Icon(CupertinoIcons.refresh_circled_solid),
-                title: Text('应用更新'),
-                onPressed: (cx) {
-                  showCupertinoModalBottomSheet(
-                    context: cx,
-                    builder: (_) => AutoUpdate(),
-                  );
-                },
-              ),
-              SettingsTile.navigation(
-                leading: Icon(CupertinoIcons.arrow_down_right_square_fill),
-                title: Text('视频源帮助'),
-                onPressed: (cx) {
-                  Get.to(() => const SourceHelpTable());
-                },
-              ),
-              SettingsTile.navigation(
-                leading: Icon(CupertinoIcons.clear_thick_circled),
-                title: Text('清除缓存'),
-                onPressed: handleCleanCacheBefore,
-              ),
-              SettingsTile.navigation(
-                leading: Icon(CupertinoIcons.lab_flask_solid),
-                title: Text('开源协议'),
-                onPressed: (cx) {
-                  showCupertinoModalBottomSheet(
-                    context: cx,
-                    builder: (_) => SizedBox(
-                      width: double.infinity,
-                      height: Get.height * .72,
-                      child: cupertinoLicensePage,
-                    ),
-                  );
-                },
-              ),
-              Copyright(),
-              BottomNavigationBarPlaceholder(),
-            ],
-          ),
-        ],
+                SettingsTile.navigation(
+                  leading: Icon(CupertinoIcons.arrow_down_right_square_fill),
+                  title: Text('视频源帮助'),
+                  onPressed: (cx) {
+                    boop.selection();
+                    Get.to(() => const SourceHelpTable());
+                  },
+                ),
+                SettingsTile.navigation(
+                  leading: Icon(CupertinoIcons.clear_thick_circled),
+                  title: Text('清除缓存'),
+                  onPressed: handleCleanCacheBefore,
+                ),
+                SettingsTile.navigation(
+                  leading: Builder(builder: (context) {
+                    return SvgPicture.string(
+                      kGithubIconSvg,
+                      width: 24,
+                      height: 24,
+                      colorFilter: ColorFilter.mode(
+                        SettingsTheme.of(context).themeData.leadingIconsColor ??
+                            Colors.transparent,
+                        BlendMode.srcIn,
+                      ),
+                    );
+                  }),
+                  title: Text('开源协议'),
+                  onPressed: (cx) {
+                    boop.selection();
+                    showCupertinoModalBottomSheet(
+                      context: cx,
+                      backgroundColor: Colors.transparent,
+                      transitionBackgroundColor: Colors.transparent,
+                      builder: (_) => SizedBox(
+                        width: double.infinity,
+                        height: Get.height * .72,
+                        child: cupertinoLicensePage,
+                      ),
+                    );
+                  },
+                ),
+                SettingsTile.navigation(
+                  leading: SvgPicture.string(
+                    r"""
+          <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 256 256"><defs><linearGradient id="IconifyId19941a896f9bb1d3b1" x1="50%" x2="50%" y1="0%" y2="100%"><stop offset="0%" stop-color="#2AABEE"/><stop offset="100%" stop-color="#229ED9"/></linearGradient></defs><path fill="url(#IconifyId19941a896f9bb1d3b1)" d="M128 0C94.06 0 61.48 13.494 37.5 37.49A128.04 128.04 0 0 0 0 128c0 33.934 13.5 66.514 37.5 90.51C61.48 242.506 94.06 256 128 256s66.52-13.494 90.5-37.49c24-23.996 37.5-56.576 37.5-90.51s-13.5-66.514-37.5-90.51C194.52 13.494 161.94 0 128 0"/><path fill="#FFF" d="M57.94 126.648q55.98-24.384 74.64-32.152c35.56-14.786 42.94-17.354 47.76-17.441c1.06-.017 3.42.245 4.96 1.49c1.28 1.05 1.64 2.47 1.82 3.467c.16.996.38 3.266.2 5.038c-1.92 20.24-10.26 69.356-14.5 92.026c-1.78 9.592-5.32 12.808-8.74 13.122c-7.44.684-13.08-4.912-20.28-9.63c-11.26-7.386-17.62-11.982-28.56-19.188c-12.64-8.328-4.44-12.906 2.76-20.386c1.88-1.958 34.64-31.748 35.26-34.45c.08-.338.16-1.598-.6-2.262c-.74-.666-1.84-.438-2.64-.258c-1.14.256-19.12 12.152-54 35.686c-5.1 3.508-9.72 5.218-13.88 5.128c-4.56-.098-13.36-2.584-19.9-4.708c-8-2.606-14.38-3.984-13.82-8.41c.28-2.304 3.46-4.662 9.52-7.072"/></svg>
+          """,
+                    width: 24,
+                    height: 24,
+                  ),
+                  title: Text('小猫交流群'),
+                  onPressed: (cx) {
+                    boop.selection();
+                    kTelegramGroup.openURL();
+                  },
+                ),
+                Copyright(),
+                BottomNavigationBarPlaceholder(),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -589,7 +669,7 @@ class BottomNavigationBarPlaceholder extends AbstractSettingsTile {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(height: 80);
+    return SizedBox(height: kDefaultAppBottomBarHeight + 24);
   }
 }
 

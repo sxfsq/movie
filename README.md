@@ -14,13 +14,15 @@
 
 <!-- <img src="https://s2.loli.net/2025/08/12/dN78kJ1pAwqHYVZ.webp" width="120" /> -->
 
+吹牛逼飞机群: https://t.me/catmovie1145
+
 <details>
 <summary>查看截图 🖼️</summary>
 
-![首页](https://s2.loli.net/2025/08/04/1qJ72QC9ioxRjkZ.jpg)
-![搜索](https://s2.loli.net/2025/08/04/VNZtikObdxhnRLf.jpg)
-![TV](https://s2.loli.net/2025/08/04/XUZ18fmzEwiPoR3.jpg)
-![播放.jpg](https://s2.loli.net/2025/08/29/PghkRipeYQDfC2U.png)
+![首页](https://s2.loli.net/2025/09/14/QJmYod9K7G6cRkE.png)
+![搜索](https://s2.loli.net/2025/09/14/8eEsAtpcM3dIX5C.png)
+![TV](https://s2.loli.net/2025/09/14/trgyicKe47mf5I2.png)
+![播放.jpg](https://s2.loli.net/2025/09/14/oO6iKgFPEth9M43.png)
 
 </details>
 
@@ -61,12 +63,11 @@ yay -S xdg-user-dir xdg-utils
 
 #### **Android 🤖**
 
-安卓没有正式测试过, 如果有问题记得提 [issue](https://github.com/waifu-project/movie/issues)
+大部分手机直接使用常用架构包就行了, 通用包兼容多种架构
 
-> [!NOTE]
-> 安卓建议直接将播放器内核切换到 `MediaKit`
-
-[![](https://img.shields.io/badge/-点我下载-blue?logo=github)](https://github.com/waifu-project/movie/releases/latest/download/catmovie.apk)
+- [常用(arm64-v8a)](https://github.com/waifu-project/movie/releases/latest/download/catmovie.apk)
+- [旧手机(armeabi-v7a)](https://github.com/waifu-project/movie/releases/latest/download/catmovie-legacy.apk)
+- [通用(universal)](https://github.com/waifu-project/movie/releases/latest/download/catmovie-universal.apk)
 
 #### **iOS 📱**
 

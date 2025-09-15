@@ -33,26 +33,13 @@ dependencies:
   auto_injector: ^2.1.1
   settings_ui: ^2.0.2
 
-  waterfall_flow: ^3.1.1
-
   file_picker: ^10.2.0
   share_plus: ^11.0.0
 
   equatable: ^2.0.7
 
-  isar:
-    hosted:
-      name: isar
-      url: https://pub.isar-community.dev/
-    version: ^3.1.8
-  isar_flutter_libs:
-    hosted:
-      name: isar_flutter_libs
-      url: https://pub.isar-community.dev/
-    version: ^3.1.8
-
-  # isar: ^3.1.0+1
-  # isar_flutter_libs: ^3.1.0+1
+  isar_community: ^3.3.0-dev.2
+  isar_community_flutter_libs: ^3.3.0-dev.2
 
   tuple: ^2.0.2
   flutter_easyloading: ^3.0.5
@@ -132,6 +119,7 @@ dependencies:
       url: https://github.com/waifu-project/media-kit.git
       ref: main
       path: ./media_kit_video
+    # path: /Users/d1y/code/github/media-kit/media_kit_video
   media_kit_libs_video:
     git:
       url: https://github.com/Predidit/media-kit.git
@@ -151,6 +139,12 @@ dependencies:
   haptic_feedback: ^0.5.1+1
 
   aurora: ^1.0.0
+
+  flutter_keyboard_visibility: ^6.0.0
+
+  flutter_svg: ^2.2.1
+
+  nuts_activity_indicator: ^1.0.0
 
 dependency_overrides:
   media_kit:
@@ -206,12 +200,7 @@ dev_dependencies:
 
   # flutter_native_splash: ^2.4.6
 
-  isar_generator:
-    hosted:
-      name: isar_generator
-      url: https://pub.isar-community.dev/
-    version: ^3.1.8
-  # isar_generator: ^3.1.0+1
+  isar_community_generator: ^3.3.0-dev.2
 
   build_runner: ^2.4.4
 
@@ -236,7 +225,6 @@ flutter:
     - assets/
     - assets/data/source_help.txt
     - assets/data/play_tips.txt
-    - assets/images/github_logo.png
     - assets/images/error.png
     - assets/data/playlist.js
 

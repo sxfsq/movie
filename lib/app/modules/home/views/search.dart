@@ -13,9 +13,10 @@ import 'package:catmovie/utils/boop.dart';
 import 'package:concurrent_queue/concurrent_queue.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:get/get.dart';
 import 'package:catmovie/app/extension.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import 'package:tuple/tuple.dart';
 import 'package:xi/xi.dart';
 
@@ -317,7 +318,7 @@ class _SearchV2State extends State<SearchV2> with AfterLayoutMixin {
                                 color: CupertinoDynamicColor.withBrightness(
                                   color: CupertinoColors.inactiveGray,
                                   darkColor: CupertinoColors.white,
-                                ).withValues(alpha: _hasFocus ? .42 : .12),
+                                ).withValues(alpha: _hasFocus ? .72 : .12),
                                 width: 1,
                               ),
                               borderRadius:
@@ -545,42 +546,46 @@ class _SearchV2State extends State<SearchV2> with AfterLayoutMixin {
           width: 120,
           height: double.infinity,
           padding: EdgeInsets.symmetric(vertical: 6, horizontal: 9),
-          child: SingleChildScrollView(
-            child: Column(
-              spacing: 12,
-              children: sourceList.map((item) {
-                var textColor = Get.isDarkMode ? Colors.white : Colors.black;
-                if (item == currSource) {
-                  textColor = Color(0xFF6750A4);
-                }
-                return Zoom(
-                  onTap: () {
-                    showMoreBtn = false;
-                    moreBtnLoading = false;
-                    currSource = item;
-                    setState(() {});
-                    boop.selection();
-                  },
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: (Get.isDarkMode ? '#1c1c1e' : "#f0f0f0").$color,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    width: double.infinity,
-                    padding: EdgeInsets.all(12),
-                    child: Text(
-                      item.name,
-                      textAlign: TextAlign.center,
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                      style: TextStyle(
-                        color: textColor,
-                        fontWeight: FontWeight.bold,
+          child: ScrollConfiguration(
+            behavior:
+                ScrollConfiguration.of(context).copyWith(scrollbars: false),
+            child: SingleChildScrollView(
+              child: Column(
+                spacing: 12,
+                children: sourceList.map((item) {
+                  var textColor = Get.isDarkMode ? Colors.white : Colors.black;
+                  if (item == currSource) {
+                    textColor = Color(0xFF6750A4);
+                  }
+                  return Zoom(
+                    onTap: () {
+                      showMoreBtn = false;
+                      moreBtnLoading = false;
+                      currSource = item;
+                      setState(() {});
+                      boop.selection();
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: (Get.isDarkMode ? '#1c1c1e' : "#f0f0f0").$color,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      width: double.infinity,
+                      padding: EdgeInsets.all(12),
+                      child: Text(
+                        item.name,
+                        textAlign: TextAlign.center,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        style: TextStyle(
+                          color: textColor,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
-                  ),
-                );
-              }).toList(),
+                  );
+                }).toList(),
+              ),
             ),
           ),
         ),
@@ -603,21 +608,19 @@ class _SearchV2State extends State<SearchV2> with AfterLayoutMixin {
                           onTap: () async {
                             var data = item;
                             if (item.videos.isEmpty) {
-                              String id = item.id;
-                              Get.dialog(
-                                Center(
-                                  child: Image.asset(
-                                    "assets/loading.gif",
-                                    width: 120,
-                                    height: 120,
-                                  ),
-                                ),
-                              );
-                              var cx = home.mirrorList.firstWhere((item) {
-                                return item.meta == currSource;
+                              var isNext =
+                                  await showLoadingPlaceholderTask(() async {
+                                String id = item.id;
+                                var curr =
+                                    home.mirrorList.firstWhereOrNull((cx) {
+                                  return cx.meta == item.getContext();
+                                });
+                                if (curr == null) {
+                                  throw Exception("未找到对应的源");
+                                }
+                                data = await curr.getDetail(id);
                               });
-                              data = await cx.getDetail(id);
-                              Get.back();
+                              if (!isNext) return;
                             }
                             Get.toNamed(
                               Routes.PLAY,
@@ -654,7 +657,8 @@ class _SearchV2State extends State<SearchV2> with AfterLayoutMixin {
                                             (context, url, progress) =>
                                                 DecoratedBox(
                                           decoration: BoxDecoration(
-                                            color: Colors.white.withValues(alpha: .12),
+                                            color: Colors.white
+                                                .withValues(alpha: .12),
                                           ),
                                           child: Center(
                                             child: CircularProgressIndicator(
@@ -784,12 +788,15 @@ class _SearchV2State extends State<SearchV2> with AfterLayoutMixin {
                       });
                       var nextPage = cx.item1 + 1;
                       List<VideoDetail> list = [];
+                      boop.selection();
                       try {
                         list = await axios.getSearch(
                           keyword: keyword,
                           page: nextPage,
                         );
+                        boop.success();
                       } catch (e) {
+                        boop.error();
                         debugPrint(e.toString());
                       }
                       moreBtnLoading = false;
@@ -820,21 +827,24 @@ class _SearchV2State extends State<SearchV2> with AfterLayoutMixin {
           .withValues(alpha: .88),
       appBar: _buildAppBar(),
       floatingActionButton: _buildActionButton(),
-      body: SizedBox(
-        width: double.infinity,
-        height: double.infinity,
-        child: Builder(builder: (context) {
-          if (showHistory) {
-            return _buildHistory();
-          }
-          if (searchDone && map.isEmpty) {
-            return _buildEmpty();
-          }
-          if (isSearching && map.isEmpty) {
-            return _buildLoading();
-          }
-          return _buildBody();
-        }),
+      body: KeyboardDismissOnTap(
+        dismissOnCapturedTaps: true,
+        child: SizedBox(
+          width: double.infinity,
+          height: double.infinity,
+          child: Builder(builder: (context) {
+            if (showHistory) {
+              return _buildHistory();
+            }
+            if (searchDone && map.isEmpty) {
+              return _buildEmpty();
+            }
+            if (isSearching && map.isEmpty) {
+              return _buildLoading();
+            }
+            return _buildBody();
+          }),
+        ),
       ),
     );
   }

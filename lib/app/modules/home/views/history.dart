@@ -15,7 +15,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:get/get.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import 'package:tuple/tuple.dart';
 
 class HistoryPage extends StatefulWidget {
@@ -186,15 +186,6 @@ class _HistoryPageState extends State<HistoryPage> with AfterLayoutMixin {
                             Expanded(
                               child: Zoom(
                                 onTap: () async {
-                                  Get.dialog(
-                                    Center(
-                                      child: Image.asset(
-                                        "assets/loading.gif",
-                                        width: 120,
-                                        height: 120,
-                                      ),
-                                    ),
-                                  );
                                   var cx = home.mirrorList
                                       .firstWhereOrNull((mirror) {
                                     return mirror.meta.id == item.sid;
@@ -203,21 +194,22 @@ class _HistoryPageState extends State<HistoryPage> with AfterLayoutMixin {
                                     EasyLoading.showError("未找到源");
                                     return;
                                   }
-                                  var data =
-                                      await cx.getDetail(item.ctx.detailID);
-                                  data.setContext(cx.meta);
-                                  Get.back();
-                                  try {
-                                    Tuple2<PlayState, String> ps =
-                                        await Get.toNamed(
-                                      Routes.PLAY,
-                                      arguments: data,
-                                    );
-                                    item.ctx.pText = ps.item2;
-                                    if (mounted) setState(() {});
-                                  } catch (e) {
-                                    debugPrint(e.toString());
-                                  }
+                                  showLoadingPlaceholderTask(() async {
+                                    var data =
+                                        await cx.getDetail(item.ctx.detailID);
+                                    data.setContext(cx.meta);
+                                    try {
+                                      Tuple2<PlayState, String> ps =
+                                          await Get.toNamed(
+                                        Routes.PLAY,
+                                        arguments: data,
+                                      );
+                                      item.ctx.pText = ps.item2;
+                                      if (mounted) setState(() {});
+                                    } catch (e) {
+                                      debugPrint(e.toString());
+                                    }
+                                  });
                                 },
                                 scaleRatio: .98,
                                 child: Row(
@@ -226,17 +218,11 @@ class _HistoryPageState extends State<HistoryPage> with AfterLayoutMixin {
                                   children: [
                                     Builder(builder: (context) {
                                       var img = item.ctx.cover;
-                                      var w =
-                                          context.mediaQuery.size.width * .32;
-                                      var h =
-                                          context.mediaQuery.size.height * .126;
-                                      if (w >= 320) w = 320;
                                       return ClipRRect(
                                         borderRadius: BorderRadius.circular(6),
                                         child: CachedNetworkImage(
                                           imageUrl: img,
-                                          width: w,
-                                          height: h,
+                                          width: 120,
                                           fit: BoxFit.cover,
                                           placeholder: (context, url) =>
                                               Container(
