@@ -68,6 +68,10 @@ extension ISettingMixin on Object {
       return curr.onBoardingShowed;
     } else if (key == SettingsAllKey.videoKernel) {
       return curr.videoKernel;
+    } else if (key == SettingsAllKey.hapticFeedback) {
+      return curr.hapticFeedback;
+    } else if (key == SettingsAllKey.showNsfwSetting) {
+      return curr.showNsfwSetting;
     }
     return curr.id;
   }
@@ -90,6 +94,10 @@ extension ISettingMixin on Object {
       curr.onBoardingShowed = value;
     } else if (key == SettingsAllKey.videoKernel) {
       curr.videoKernel = value;
+    } else if (key == SettingsAllKey.hapticFeedback) {
+      curr.hapticFeedback = value;
+    } else if (key == SettingsAllKey.showNsfwSetting) {
+      curr.showNsfwSetting = value;
     } else {
       return;
     }

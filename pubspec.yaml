@@ -34,7 +34,7 @@ dependencies:
   settings_ui: ^2.0.2
 
   file_picker: ^10.2.0
-  share_plus: ^11.0.0
+  share_plus: ^12.0.0
 
   equatable: ^2.0.7
 
@@ -59,7 +59,7 @@ dependencies:
     git:
       url: https://github.com/waifu-project/flutter-plugins
       branch: webview_window_icon
-      ref: 474e50a7aa29e5624dcb54f446bce57050f6a49f
+      ref: b8b90776e769e23e27198c297d88246a13b4e75a
       path: packages/desktop_webview_window
   command_palette:
     git:
@@ -79,7 +79,6 @@ dependencies:
       url: https://github.com/dridino/smooth_list_view
       ref: main
 
-  dio_cache_interceptor: ^4.0.3
   provider: ^6.1.5
   dio: ^5.8.0+1
   collection: ^1.19.1
@@ -145,6 +144,8 @@ dependencies:
   flutter_svg: ^2.2.1
 
   nuts_activity_indicator: ^1.0.0
+
+  scrolls_to_top: ^2.1.1
 
 dependency_overrides:
   media_kit:

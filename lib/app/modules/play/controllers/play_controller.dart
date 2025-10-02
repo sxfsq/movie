@@ -395,14 +395,28 @@ document.addEventListener('DOMContentLoaded', function() {
 
   Future<String> parseIframe(String iframe) async {
     var closed = showLoading("正在解析iframe");
-    var result = await home.currentMirrorItem.parseIframe(iframe);
-    closed();
-    if (result.isEmpty) {
+    List<String> result = [];
+    var error = "";
+    try {
+      result = await home.currentMirrorItem.parseIframe(iframe);
+    } catch (e) {
+      error = e.toString();
+      debugPrint("parseIframe error: $e");
+    } finally {
+      closed();
+    }
+    if (error.isNotEmpty) {
+      EasyLoading.showError(error);
+      return "";
+    }
+    if (result.isEmpty || result[0].isEmpty) {
       EasyLoading.showError("解析失败, 无法播放");
       return "";
     }
-    debugPrint("result: $result");
-    String url = result[0]; // NOTE(d1y): 估计解析到不止一个, 该用哪一个呢!
+    debugPrint("parseIframe result: $result");
+    // NOTE(d1y): 估计解析到不止一个, 该用哪一个呢!
+    // 让用户选择播放哪一个?
+    String url = result[0];
     return url;
   }
 
@@ -413,6 +427,7 @@ document.addEventListener('DOMContentLoaded', function() {
     VideoKernel videoKernel,
     Player? mediaKitPlayer,
     bool isUpSort,
+    VideoDetail? context,
   ) async {
     var url = curr.url;
     url = getPlayUrl(url);
@@ -502,10 +517,21 @@ document.addEventListener('DOMContentLoaded', function() {
           if (url.isEmpty) return false;
         }
         if (mediaKitPlayer == null) return false;
-        mediaKitPlayer.open(Media(url, httpHeaders: {
-          "user-agent":
-              "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
-        }));
+        var header = {
+          "User-Agent":
+              'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1.1 Mobile/15E148 Safari/604.1',
+          "sec-ch-ua-platform": "macOS",
+          'sec-ch-ua': '"Not=A?Brand";v="24", "Chromium";v="140"',
+          'DNT': '1'
+        };
+        if (context != null) {
+          var cx = context.getContext();
+          if (cx != null) {
+            // NOTE(d1y): 在一些源中, 如果不传递 Referer 则无法播放
+            header['Referer'] = cx.api;
+          }
+        }
+        mediaKitPlayer.open(Media(url, httpHeaders: header));
         break;
     }
 
@@ -528,7 +554,7 @@ document.addEventListener('DOMContentLoaded', function() {
         actions: <CupertinoDialogAction>[
           CupertinoDialogAction(
             child: const Text(
-              '不在提醒',
+              '不再提醒',
               style: TextStyle(
                 color: Colors.red,
               ),

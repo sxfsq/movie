@@ -1,5 +1,7 @@
 # 示例
 
+TODO: 这部分功能已经失效, 需要重新实现
+
 - `yoyo://import`
 	- 添加单个源: `yoyo://import?name=卧龙&url=https://collect.wolongzyw.com/api.php/provide/vod/at/json&nsfw=false`
 - `yoyo://sub`

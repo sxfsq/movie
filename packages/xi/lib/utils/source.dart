@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:xi/xi.dart';
-import 'package:xi/models/mac_cms/source_data.dart';
 
 class SourceUtils {
   /// [rawString] 从输入框拿到值
@@ -14,56 +13,76 @@ class SourceUtils {
     }).toList();
   }
 
-  /// [url] 需要测试的链接
-  /// 支持类型
-  ///   github.com/d1y/1/2.json
-  ///   d1y/repo/1/2.json
-  static bool isGithubUrl(String url) {
-    return false;
-  }
-
-  /// 通过 [isGithubUrl] 判断
-  /// 如果是 `github` 链接的话就通过这个方法
-  /// 生成一个 `jsdelivr` cdn 链接用于下载
-  static String shortToGithubCDNURL() {
-    return "";
-  }
-
-  static MacCMSSpider? parse(Map<String, dynamic> rawData) {
+  static ISpiderAdapter? parse(Map<String, dynamic> rawData) {
     List<dynamic> tryData = tryParseData(rawData);
     bool status = tryData[0];
     if (status) {
-      var data = tryData[1] as SourceJsonData;
-      String id = data.id ?? Xid().toString();
-      return MacCMSSpider(
-        id: id,
-        logo: data.logo ?? "",
-        name: data.name ?? "",
-        desc: data.desc ?? "",
-        api_path: data.api!.path ?? "",
-        root_url: data.api!.root ?? "",
-        nsfw: data.nsfw ?? false,
-        status: data.status ?? true,
-        jiexiUrl: data.jiexiUrl ?? "",
+      var data = tryData[1] as Map<String, dynamic>;
+      var sourceType = _getSourceType(data);
+      Map<String, dynamic> extraMap = {
+        'jiexiUrl': data['jiexiUrl'] ?? '',
+        'gfw': data['gfw'] ?? false,
+        'searchLimit': _getSearchLimit(data, sourceType),
+      };
+
+      // 如果有 template 配置，添加到 extra 中
+      if (data['template'] != null) {
+        extraMap['template'] = data['template'];
+      }
+
+      // 如果有 JS 配置，添加到 extra 中
+      if (data['js'] != null) {
+        extraMap['js'] = data['js'];
+      }
+
+      var meta = SourceMeta(
+        id: data['id'] ?? Xid().toString(),
+        name: data['name'] ?? "",
+        type: sourceType,
+        api: data['api'] ?? "",
+        logo: data['logo'] ?? "",
+        desc: data['desc'] ?? "",
+        status: data['status'] ?? true,
+        isNsfw: data['nsfw'] ?? false,
+        extra: extraMap,
       );
+
+      switch (sourceType) {
+        case SourceType.universal:
+          return UniversalSpider(meta);
+        case SourceType.maccms:
+          return MacCMSSpider(meta);
+      }
     } else {
       return null;
     }
   }
 
-  /// 校验数据处理边界情况
-  ///
-  /// ```markdown
-  /// 1. 必须存在 `name`
-  /// 2. 必须有 `api` => `root` + `path`
-  /// ```
-  ///
+  static int _getSearchLimit(Map<String, dynamic> data, SourceType sourceType) {
+    // 如果数据中明确指定了 searchLimit，使用指定值
+    if (data.containsKey('searchLimit') && data['searchLimit'] is int) {
+      return data['searchLimit'] as int;
+    }
+    // 根据源类型设置默认值
+    return sourceType == SourceType.universal ? 10 : 20;
+  }
+
+  static SourceType _getSourceType(Map<String, dynamic> data) {
+    if (data.containsKey('type')) {
+      var typeStr = data['type'].toString().toLowerCase();
+      if (typeStr == 'universal' || typeStr == '1') {
+        return SourceType.universal;
+      }
+    }
+    return SourceType.maccms;
+  }
+
   /// 返回一个数组
   ///
   /// ```js
   /// [
   ///   status: bool,
-  ///   data: SourceJsonData
+  ///   data: Map<String, dynamic>
   /// ]
   /// ```
   static List<dynamic> tryParseData(Map<String, dynamic> rawData) {
@@ -71,17 +90,23 @@ class SourceUtils {
     bool hasName = name != null;
     var api = rawData['api'];
     String id = rawData['id'] ?? Xid().toString();
-    var jiexiUrl = rawData['jiexiUrl'];
 
-    Uri? url;
+    // 从 extra 中获取 jiexiUrl、gfw、searchLimit 和 template
+    var extra = rawData['extra'] as Map<String, dynamic>? ?? {};
+    var jiexiUrl = extra['jiexiUrl'];
+    var gfw = extra['gfw'];
+    var searchLimit = extra['searchLimit'];
+    var template = extra['template'];
+    var js = extra['js'];
+
+    String apiUrl = '';
     if (api is String) {
-      url = Uri.parse(api);
+      apiUrl = api;
     } else if (api is Map<String, dynamic>) {
-      url = Uri.parse(api['root'] + api['path']);
+      apiUrl = '${api['root'] ?? ''}${api['path'] ?? ''}';
     }
-    if (url == null) return [false, null];
+    if (apiUrl.isEmpty) return [false, null];
 
-    // NOTE(d1y): 没有名称的话就不解析了
     if (hasName) {
       bool isNsfw = false;
       if ((rawData['group'] ?? "") == "18禁") {
@@ -90,15 +115,21 @@ class SourceUtils {
       if (rawData['nsfw'] ?? false) {
         isNsfw = true;
       }
-      var data = SourceJsonData(
-        id: id,
-        name: name,
-        logo: rawData["logo"] ?? "",
-        desc: rawData["desc"] ?? "",
-        nsfw: isNsfw,
-        jiexiUrl: jiexiUrl,
-        api: Api(path: url.path, root: url.origin),
-      );
+      var data = {
+        'id': id,
+        'name': name,
+        'logo': rawData["logo"] ?? "",
+        'desc': rawData["desc"] ?? "",
+        'nsfw': isNsfw,
+        'jiexiUrl': jiexiUrl,
+        'gfw': gfw,
+        'searchLimit': searchLimit,
+        'template': template,
+        'api': apiUrl,
+        'status': rawData['status'] ?? true,
+        'type': rawData['type'],
+        'js': js,
+      };
       return [true, data];
     }
     return [false, null];
@@ -116,9 +147,9 @@ class SourceUtils {
   ///
   /// => [null]
   ///
-  /// => [List<SourceJsonData>]
+  /// => [List<ISpiderAdapter>]
   ///
-  /// => [KBaseMirrorMovie?]
+  /// => [ISpiderAdapter?]
   static dynamic tryParseDynamic(dynamic data) {
     if (data is String) {
       bool isJSON = verifyStringIsJSON(data);
@@ -176,8 +207,8 @@ class SourceUtils {
   }
 
   /// 加载网络源
-  static Future<List<MacCMSSpider>> runTaks(List<String> sources) async {
-    List<MacCMSSpider> result = [];
+  static Future<List<ISpiderAdapter>> runTaks(List<String> sources) async {
+    List<ISpiderAdapter> result = [];
     await Future.forEach(sources, (String element) async {
       debugPrint("加载网络源: $element");
       try {
@@ -185,15 +216,15 @@ class SourceUtils {
         var resp = await XHttp.dio.get(
           element,
           options: Options(
-            responseType: ResponseType.json, // 暂未设计出 `.xv` 文件, 通过 `json` 导入
+            responseType: ResponseType.plain,
             receiveTimeout: time,
             sendTimeout: time,
-          ),
+          ).withNoCache(),
         );
         dynamic respData = resp.data;
         var data = tryParseDynamic(respData);
         if (data == null) return;
-        if (data is MacCMSSpider) {
+        if (data is ISpiderAdapter) {
           result.add(data);
         } else if (data is List) {
           var append = data
@@ -202,7 +233,7 @@ class SourceUtils {
               })
               .toList()
               .map((ele) {
-                return ele as MacCMSSpider;
+                return ele as ISpiderAdapter;
               })
               .toList();
           result.addAll(append);
@@ -217,17 +248,15 @@ class SourceUtils {
 
   /// 合并资源
   ///
-  /// [List<SourceJsonData>]
-  ///
   /// [diff] 时返回
   ///
-  /// => [len, List<KBaseMirrorMovie>]
+  /// => [len, List<Map<String, dynamic>>]
   ///
-  /// => [List<KBaseMirrorMovie>]
+  /// => [List<Map<String, dynamic>>]
   @Deprecated("REMOVE THIS")
   static dynamic mergeMirror(
     List<ISpiderAdapter> extend,
-    List<MacCMSSpider> newSourceData, {
+    List<ISpiderAdapter> newSourceData, {
     /// diff 是为了返回增加的源源量
     bool diff = false,
 
@@ -238,9 +267,9 @@ class SourceUtils {
 
     if (!cover) {
       for (var element in newSourceData) {
-        var newDataDomain = element.meta.domain;
+        var newDataApi = element.meta.api;
         extend.removeWhere(
-          (element) => element.meta.domain == newDataDomain,
+          (element) => element.meta.api == newDataApi,
         );
       }
       extend.addAll(newSourceData);
@@ -254,28 +283,20 @@ class SourceUtils {
     /// 如果比对之后发现没有改变, 则返回 [0, []]
     if (newLen <= 0 && diff) return [0, []];
 
-    var inputData = extend;
-    inputData = inputData.map((e) {
-      return e as MacCMSSpider;
-    }).toList();
-    // return [0, []];
-    var copyData = (inputData as List<MacCMSSpider>).map(
+    var copyData = extend.map(
       (e) {
-        var id = e.meta.id;
-        var status = e.meta.status;
-        return SourceJsonData(
-          name: e.meta.name,
-          logo: e.meta.logo,
-          desc: e.meta.desc,
-          nsfw: e.isNsfw,
-          jiexiUrl: e.jiexiUrl,
-          api: Api(
-            root: e.meta.domain,
-            path: e.api_path,
-          ),
-          id: id,
-          status: status,
-        );
+        return {
+          'name': e.meta.name,
+          'logo': e.meta.logo,
+          'desc': e.meta.desc,
+          'nsfw': e.meta.isNsfw,
+          'jiexiUrl': e.meta.extra['jiexiUrl'] ?? '',
+          'gfw': e.meta.extra['gfw'] ?? false,
+          'api': e.meta.api,
+          'id': e.meta.id,
+          'status': e.meta.status,
+          'type': e.meta.type.name,
+        };
       },
     ).toList();
     if (diff) {

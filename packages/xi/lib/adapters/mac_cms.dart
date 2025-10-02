@@ -25,26 +25,20 @@ enum ResponseCustomType {
 }
 
 class MacCMSSpider extends ISpiderAdapter {
-  final bool nsfw;
-  final String jiexiUrl;
-  final String name;
-  final String logo;
-  final String desc;
-  final String root_url;
-  final String api_path;
-  final String id;
-  final bool status;
-  MacCMSSpider({
-    this.nsfw = false,
-    this.name = "",
-    this.logo = "",
-    this.desc = "",
-    this.jiexiUrl = "",
-    this.status = true,
-    required this.id,
-    required this.root_url,
-    required this.api_path,
-  });
+  MacCMSSpider(SourceMeta sourceMeta) {
+    meta = sourceMeta;
+  }
+
+  String get jiexiUrl => meta.extra['jiexiUrl'] ?? '';
+  String get root_url {
+    var uri = Uri.parse(meta.api);
+    return uri.origin;
+  }
+
+  String get api_path {
+    var uri = Uri.parse(meta.api);
+    return uri.path;
+  }
 
   String createUrl({
     required String suffix,
@@ -52,7 +46,13 @@ class MacCMSSpider extends ISpiderAdapter {
     return root_url + suffix;
   }
 
-  Options ops = Options(responseType: ResponseType.plain);
+  Options ops = Options(responseType: ResponseType.plain, headers: {
+    "User-Agent":
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1.1 Mobile/15E148 Safari/604.1',
+    "sec-ch-ua-platform": "macOS",
+    'sec-ch-ua': '"Not=A?Brand";v="24", "Chromium";v="140"',
+    'DNT': '1',
+  });
 
   bool get hasJiexiUrl {
     return jiexiUrl.isNotEmpty;
@@ -226,22 +226,12 @@ class MacCMSSpider extends ISpiderAdapter {
   }
 
   @override
-  bool get isNsfw => nsfw;
-
-  @override
-  SourceItemMeta get meta => SourceItemMeta(
-        name: name,
-        logo: logo,
-        desc: desc,
-        domain: root_url,
-        id: id,
-        status: status,
-      );
+  bool get isNsfw => meta.isNsfw;
 
   @override
   Future<List<SourceSpiderQueryCategory>> getCategory() async {
     var path = createUrl(suffix: api_path);
-    var resp = await XHttp.dio.get(path);
+    var resp = await XHttp.dio.get(path, options: ops);
     dynamic data = resp.data;
     var _type = getResponseTypeAndCheck(data);
     List<SourceSpiderQueryCategory> category = [];
@@ -456,13 +446,16 @@ class MacCMSSpider extends ISpiderAdapter {
   VideoDetail __parseListItem(dynamic item) {
     var videos = <VideoInfo>[];
     // 参考格式: vod_play_from":"ukyun$$$ukm3u8","vod_play_server":"no$$$no","vod_play_note":"$$$","vod_play_url": "xxxx$$$xxxxx"
-    String vodFrom = item["vod_play_from"];
-    String vodNote = item['vod_play_note'];
+    String vodFrom = item["vod_play_from"] ?? "默认";
+    String vodNote = item['vod_play_note'] ?? "";
     String _vodURL = (item['vod_play_url'] ?? "");
     late List<String> tags;
     if (vodNote.isNotEmpty) {
       tags = vodFrom.split(vodNote /* $$$ */);
     } else {
+      if (vodFrom.isEmpty) {
+        vodFrom = "默认";
+      }
       tags = [vodFrom];
     }
     String vodURL = _vodURL.replaceAll(RegExp(r'#$'), '');
@@ -491,11 +484,17 @@ class MacCMSSpider extends ISpiderAdapter {
             })
             .toList()
             .join("#");
-        var video = VideoInfo(name: key, url: url);
+        var video = VideoInfo(name: key, url: url, type: easyGetVideoType(url));
         videos.add(video);
       });
     } else if (tags.length == 1) {
-      videos.add(VideoInfo(name: tags[0], url: _vodURL));
+      videos.add(
+        VideoInfo(
+          name: tags[0],
+          url: _vodURL,
+          type: easyGetVideoType(_vodURL),
+        ),
+      );
     }
     var _id = item['vod_id'];
     late String id;
@@ -521,7 +520,7 @@ class MacCMSSpider extends ISpiderAdapter {
   @override
   String toString() {
     var output = "\n";
-    output += "name: $name\n";
+    output += "name: ${meta.name}\n";
     output += " url: $root_url$api_path";
     return output;
   }
@@ -550,7 +549,7 @@ class MacCMSSpider extends ISpiderAdapter {
   // TODO(d1y): 这个应该交由原配置去解析, 这里的通用解析只是为了乐呵乐呵(某些估计解析不了?)
   Future<List<String>> parseIframe(String iframe) async {
     try {
-      var resp = await XHttp.dio.get<String>(iframe);
+      var resp = await XHttp.dio.get<String>(iframe, options: ops);
       var htmlText = resp.data ?? "";
       return _parseIframe(iframe, htmlText);
     } catch (e) {

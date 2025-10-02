@@ -7,6 +7,7 @@ on:
   workflow_dispatch:
 env:
   FLUTTER_VERSION: 3.35.3
+  GIST_ID: 3fc0adf7ac60b351a9432e9f8ed4e9d3
   LINUX_DEPENDENCIES: git wget unzip python3 zip xz-utils curl clang cmake ninja-build pkg-config libgtk-3-dev libblkid-dev liblzma-dev libjsoncpp-dev cmake-data libjsoncpp25 libsecret-1-dev libsecret-1-0 librhash0 libsqlite3-dev libappindicator3-dev gettext libwebkit2gtk-4.1-dev libasound2-dev libmpv-dev mpv
 
 jobs:
@@ -16,10 +17,21 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
+      - name: Download kitty.umd.js from gist
+        run: |
+          echo "📥 Downloading kitty.umd.js from gist..."
+          mkdir -p packages/xi/assets/js
+          curl -L -o packages/xi/assets/js/kitty.umd.js "https://gist.githubusercontent.com/d1y/${{ env.GIST_ID }}/raw/kitty.umd.js"
+          echo "✅ Downloaded kitty.umd.js"
+        shell: bash
+
       - name: Install project dependencies
         run: |
           ./script/fetch_git_info.ps1
@@ -28,6 +40,13 @@ jobs:
           # dart run script/add_builtin.dart > lib/builtin/maccms/maccms.dart
           $env:version = "${{ github.ref_name }}" -replace "^release-v", ""
           dart run script/replace_version.dart
+      - name: Generate templates
+        run: |
+          cd JS/cli
+          bun install
+          cd ../../packages/xi/lib/adapters/templates
+          bun install
+          bun run build
       - name: Build windows
         run: |
           flutter config --enable-windows-desktop
@@ -56,16 +75,34 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
       - name: Disable Google Analytics
         run: flutter config --no-analytics
+      - name: Download kitty.umd.js from gist
+        run: |
+          echo "📥 Downloading kitty.umd.js from gist..."
+          mkdir -p packages/xi/assets/js
+          curl -L -o packages/xi/assets/js/kitty.umd.js \
+            "https://gist.githubusercontent.com/d1y/${{ env.GIST_ID }}/raw/kitty.umd.js"
+          echo "✅ Downloaded kitty.umd.js"
+
       - name: Install dependencies
         run: |
           flutter pub get
           flutter pub run build_runner build
+      - name: Generate templates
+        run: |
+          cd JS/cli
+          bun install
+          cd ../../packages/xi/lib/adapters/templates
+          bun install
+          bun run build
       - name: Enable Linux support
         run: flutter config --enable-linux-desktop
       - name: Install dependencies
@@ -97,6 +134,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
       - uses: actions/setup-java@v4
         with:
           distribution: "zulu"
@@ -114,6 +154,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Download kitty.umd.js from gist
+        run: |
+          echo "📥 Downloading kitty.umd.js from gist..."
+          mkdir -p packages/xi/assets/js
+          curl -L -o packages/xi/assets/js/kitty.umd.js \
+            "https://gist.githubusercontent.com/d1y/${{ env.GIST_ID }}/raw/kitty.umd.js"
+          echo "✅ Downloaded kitty.umd.js"
+
       - name: Build android apk
         run: |
           bash script/fetch_git_info.sh
@@ -122,6 +170,15 @@ jobs:
           # dart run script/add_builtin.dart > lib/builtin/maccms/maccms.dart
           export version=$(echo "${{ github.ref_name }}" | sed 's/^release-v//')
           dart run script/replace_version.dart
+      - name: Generate templates
+        run: |
+          cd JS/cli
+          bun install
+          cd ../../packages/xi/lib/adapters/templates
+          bun install
+          bun run build
+      - name: Build APK and IPA
+        run: |
           flutter build apk --release
           flutter build apk --release --split-per-abi
           cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk catmovie.apk

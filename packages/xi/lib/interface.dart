@@ -117,11 +117,11 @@ class VideoDetail {
 
   Map<String, dynamic> extra;
 
-  SourceItemMeta? getContext() {
+  SourceMeta? getContext() {
     return extra['source'];
   }
 
-  void setContext(SourceItemMeta value) {
+  void setContext(SourceMeta value) {
     extra['source'] = value;
   }
 
@@ -140,47 +140,70 @@ class VideoDetail {
     this.videoInfo = kDefaultVideoSize,
     this.videos = const [],
   });
+
+  VideoDetail mergeWith(VideoDetail neoDetail) {
+    var title = neoDetail.title.isEmpty ? this.title : neoDetail.title;
+    var desc = neoDetail.desc.isEmpty ? this.desc : neoDetail.desc;
+    var updateTime = neoDetail.updateTime.isEmpty ? this.updateTime : neoDetail.updateTime;
+    var remark = neoDetail.remark.isEmpty ? this.remark : neoDetail.remark;
+    var bigCoverImage = neoDetail.bigCoverImage.isEmpty ? this.bigCoverImage : neoDetail.bigCoverImage;
+    var smallCoverImage = neoDetail.smallCoverImage.isEmpty ? this.smallCoverImage : neoDetail.smallCoverImage;
+    var videos = neoDetail.videos.isEmpty ? this.videos : neoDetail.videos;
+    var id = neoDetail.id.isEmpty ? this.id : neoDetail.id;
+    return VideoDetail(
+      id: id,
+      title: title,
+      desc: desc,
+      updateTime: updateTime,
+      remark: remark,
+      likeCount: neoDetail.likeCount,
+      viewCount: neoDetail.viewCount,
+      dislikeCount: neoDetail.dislikeCount,
+      bigCoverImage: bigCoverImage,
+      smallCoverImage: smallCoverImage,
+      videoInfo: neoDetail.videoInfo,
+      videos: videos,
+      extra: neoDetail.extra,
+    );
+  }
 }
 
-class SourceItemMeta extends Equatable {
-  /// 图标, 默认为空将使用本地资源图标
-  final String logo;
+enum SourceType {
+  maccms, // 0
+  universal, // 1
+  // drpy,
+}
 
-  /// 域名, 用来去重
-  final String domain;
-
-  /// 资源名称
-  final String name;
-
-  /// 开发者
-  final String developer;
-
-  /// 开发者邮箱
-  /// 用于联系维护者
-  final String developerMail;
-
-  /// 介绍
-  final String desc;
-
+class SourceMeta extends Equatable {
   final String id;
-
-  /// 是否可用
+  final String name;
+  final SourceType type;
+  final String logo;
+  final String desc;
+  final String api;
+  final bool isNsfw;
   final bool status;
+  final Map<String, dynamic> extra;
 
-  const SourceItemMeta({
-    this.logo = "",
-    this.developer = "",
-    this.developerMail = "",
-    this.desc = "",
-    this.status = true,
+  const SourceMeta({
     required this.id,
     required this.name,
-    required this.domain,
+    required this.type,
+    required this.api,
+    this.status = true,
+    this.isNsfw = false,
+    this.logo = "",
+    this.desc = "",
+    this.extra = const {},
   });
 
+  /// 获取搜索分页大小
+  int get searchLimit {
+    return extra['searchLimit'] ?? (type == SourceType.universal ? 10 : 20);
+  }
+
   @override
-  List<Object?> get props =>
-      [logo, domain, name, developer, developerMail, desc, id];
+  List<Object?> get props => [id, name, type, api, isNsfw];
 }
 
 class SourceSpiderQueryCategory extends Equatable {
@@ -206,7 +229,7 @@ abstract class ISpiderAdapter {
   bool get isNsfw;
 
   /// 源信息
-  SourceItemMeta get meta;
+  late final SourceMeta meta;
 
   /// 获取分类
   Future<List<SourceSpiderQueryCategory>> getCategory();
@@ -234,6 +257,17 @@ abstract class ISpiderAdapter {
 
 /// 基本上它就是一个空的占位符
 class EmptySpiderAdapter implements ISpiderAdapter {
+
+  @override
+  bool get isNsfw => false;
+
+  @override
+  late final SourceMeta meta;
+
+  EmptySpiderAdapter() {
+    meta = const SourceMeta(id: '', name: '', type: SourceType.maccms, api: '');
+  }
+
   @override
   Future<List<SourceSpiderQueryCategory>> getCategory() async {
     return [];
@@ -261,11 +295,6 @@ class EmptySpiderAdapter implements ISpiderAdapter {
     return [];
   }
 
-  @override
-  bool get isNsfw => false;
-
-  @override
-  SourceItemMeta get meta => SourceItemMeta(id: '', name: '', domain: '');
 }
 
 const VideoSize kDefaultVideoSize = VideoSize();

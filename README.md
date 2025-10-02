@@ -90,3 +90,11 @@ yay -S xdg-user-dir xdg-utils
 - [URL Scheme](./docs/protocol.md)
 - [贡献代码](./docs/PR.md)
 - [调试代码](./docs/start_dev.md)
+
+### 赞助
+
+**万水千山总是情, 微信转账300行不行 👀**
+
+感谢您的支持, 这将让小猫可以继续走下去 🤗
+
+<img src="https://s2.loli.net/2025/09/24/ByRvOsQhWzKLXNo.jpg" width="300" />

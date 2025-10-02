@@ -38,9 +38,9 @@ function getTwoTagCommitHashs(a, b) {
   return execSync(`git log --oneline --format="%h" ${a}...${b}`).toString('utf-8').trim().split("\n")
 }
 
-function getLatestTags(size = 2) {
-  return execSync(`git tag -l --sort=-v:refname | head -${size}`).toString('utf-8').trim().split("\n")
-}
+// function getLatestTags(size = 2) {
+//   return execSync(`git tag -l --sort=-v:refname | head -${size}`).toString('utf-8').trim().split("\n")
+// }
 
 /**
  * @param {string} tag 
@@ -78,10 +78,21 @@ function buildRealFastLink(tag, file) {
   }).join(" \\| ")
 }
 
+function getChinaDate() {
+  const chinaDate = new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date());
+  return chinaDate.replace(/\//g, '-')
+}
+
 function buildReleaseHeader(tag) {
   const _ = (file)=> buildRealFastLink(tag, file)
+  const date = getChinaDate()
 return `
-## 🐱 小猫影视
+## 🐱 小猫影视(${date})
 
 | 系统     | 文件后缀 | 架构          | 下载链接 |
 |---------|------|-------------|------|
@@ -92,6 +103,14 @@ return `
 | Android | .apk | 通用(universal)   |  ${_('catmovie-universal.apk')}    |
 | Windows | .zip | -            |  ${_('catmovie-windows.zip')}    |   |
 | Linux   | .zip | -            | ${_('catmovie-linux-x86_64.tar.gz')}     |
+
+## 赞助
+
+**万水千山总是情, 微信转账300行不行 👀**
+感谢您的支持, 这将让小猫可以继续走下去 🤗
+
+<img src="https://s2.loli.net/2025/09/24/ByRvOsQhWzKLXNo.jpg" width="300" />
+
 `
 }
 
@@ -105,6 +124,31 @@ ${changelog}
 `
 }
 
+// Github API 返回排序不太对, 这里需要手动排序一下
+function sortTagsBySemVer(tags) {
+  return [...tags].sort((a, b) => {
+    const getVersion = (tagName) => tagName.replace(/^release-v/, '');
+    const v1 = getVersion(a.name);
+    const v2 = getVersion(b.name);
+    const parts1 = v1.split(/[.-]/).map(p => isNaN(Number(p)) ? p : Number(p));
+    const parts2 = v2.split(/[.-]/).map(p => isNaN(Number(p)) ? p : Number(p));
+    for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+      const p1 = i < parts1.length ? parts1[i] : -1;
+      const p2 = i < parts2.length ? parts2[i] : -1;
+      if (typeof p1 === 'number' && typeof p2 === 'number') {
+        if (p1 !== p2) return p2 - p1;
+      }
+      else if (typeof p1 === 'string' && typeof p2 === 'string') {
+        if (p1 !== p2) return p2.localeCompare(p1);
+      }
+      else {
+        return typeof p1 === 'number' ? -1 : 1;
+      }
+    }
+    return 0;
+  });
+}
+
 ;(async()=> {
   const token = process.env.GITHUB_TOKEN
   const resp = await fetch(`https://api.github.com/repos/${kRepo}/tags`, {
@@ -113,10 +157,10 @@ ${changelog}
     }
   })
   /** @type {GithubTagResponse} */
-  const tags = await resp.json()
-  const now = tags[0].name
+  const _tags = await resp.json()
+  const tags = sortTagsBySemVer(_tags)
+  const now = tags[0].name//latest
   const old = tags[1].name//我赌你枪里没有子弹
-  // const tags = getLatestTags() 
   const hashs = getTwoTagCommitHashs(now, old)
   let notes = []
   for (const hash of hashs) {

@@ -37,8 +37,10 @@ class _SourceHelpTableState extends State<SourceHelpTable> {
       _isLoadingFromAJAX = true;
     });
     try {
-      var resp =
-          await XHttp.dio.get(kCatMovieSourceAPI, options: $toDioOptions());
+      var resp = await XHttp.dio.get(
+        kCatMovieSourceAPI,
+        options: $noCacheOption(),
+      );
       late List<dynamic> list;
       if (resp.data is List) {
         list = resp.data;
@@ -208,14 +210,14 @@ class _SourceHelpTableState extends State<SourceHelpTable> {
       );
       return;
     }
-    var collData = <String, List<MacCMSSpider>>{};
+    var collData = <String, List<ISpiderAdapter>>{};
     for (var item in data) {
       String source = item[sourceKey] as String;
       String filename = item[filenameKey] as String;
       var easyParseData = SourceUtils.tryParseDynamic(source);
       if (easyParseData == null) continue;
-      List<MacCMSSpider> result = [];
-      if (easyParseData is MacCMSSpider) {
+      List<ISpiderAdapter> result = [];
+      if (easyParseData is ISpiderAdapter) {
         result = [easyParseData];
       } else if (easyParseData is List) {
         var append = easyParseData
@@ -224,7 +226,7 @@ class _SourceHelpTableState extends State<SourceHelpTable> {
             })
             .toList()
             .map((ele) {
-              return ele as MacCMSSpider;
+              return ele as ISpiderAdapter;
             });
         result.addAll(append);
       }
@@ -232,7 +234,7 @@ class _SourceHelpTableState extends State<SourceHelpTable> {
     }
 
     String easyMessage = "";
-    List<MacCMSSpider> stack = [];
+    List<ISpiderAdapter> stack = [];
 
     collData.forEach((k, v) async {
       int len = v.length;
@@ -248,18 +250,23 @@ class _SourceHelpTableState extends State<SourceHelpTable> {
       );
       return;
     } else {
-      // FIXME: 由于在 `视频源管理->获取配置` 中是同步操作而不是合并操作
-      // 所以这里合并的源, 在 `获取配置` 触发过之后, 就丢失了
-      var easyData = SourceUtils.mergeMirror(
-        SpiderManage.extend,
-        stack,
-        diff: true,
-      );
-      var diff = easyData[0] as int;
-      if (diff > 0) {
-        var newListData = easyData[1] as dynamic;
-        SpiderManage.mergeSpider(newListData);
+      // 合并新源到现有源列表
+      int oldLength = SpiderManage.extend.length;
+
+      // 去重：移除已存在的源
+      for (var newSource in stack) {
+        bool exists = SpiderManage.extend
+            .any((existing) => existing.meta.api == newSource.meta.api);
+        if (!exists) {
+          SpiderManage.extend.add(newSource);
+        }
       }
+
+      int diff = SpiderManage.extend.length - oldLength;
+      if (diff > 0) {
+        SpiderManage.saveToCache(SpiderManage.extend);
+      }
+
       var diffMsg = "本次共合并$diff个源!";
       if (diff <= 0) {
         diffMsg = "本次未合并!没有新的源!";

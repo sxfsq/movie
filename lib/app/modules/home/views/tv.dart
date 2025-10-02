@@ -10,7 +10,6 @@ import 'package:catmovie/app/modules/home/controllers/home_controller.dart';
 import 'package:catmovie/app/widget/k_body.dart';
 import 'package:catmovie/app/widget/window_appbar.dart';
 import 'package:catmovie/app/widget/zoom.dart';
-import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -361,7 +360,7 @@ class LiveSourceGroups {
       var resp = await XHttp.dio.get<String>(
         source.url,
         // NOTE(d1y): 我想我们在这里不需要缓存!
-        options: $toDioOptions(CachePolicy.noCache),
+        options: $noCacheOption(),
       );
       String body = resp.data ?? "";
       if (body.isEmpty) return false;
@@ -1003,7 +1002,7 @@ class TVUIState extends State<TVUI>
                             child: Row(
                               spacing: 6,
                               children: [
-                                Text("LIVE"),
+                                Text("LIVE", style: TextStyle(color: Colors.white)),
                                 Container(
                                   width: 12,
                                   height: 12,
@@ -1418,7 +1417,7 @@ class TVUIState extends State<TVUI>
                                                     size: 66,
                                                     color: Colors.white,
                                                   ),
-                                                  Text("请先选择频道 :)"),
+                                                  Text("请先选择频道 :)", style: TextStyle(color: Colors.white),),
                                                   SizedBox(
                                                     height: context.mediaQuery
                                                             .size.height *

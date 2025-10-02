@@ -8,8 +8,6 @@ import 'package:catmovie/isar/repo.dart';
 import 'package:catmovie/isar/schema/mirror_schema.dart';
 import 'package:catmovie/shared/enum.dart';
 
-import 'package:xi/models/mac_cms/source_data.dart';
-
 class SpiderManage {
   SpiderManage._internal();
 
@@ -29,16 +27,51 @@ class SpiderManage {
   static Future<void> init() async {
     final data = IsarRepository().mirrorAs.where(distinct: false).findAllSync();
     var result = data.map((item) {
-      return MacCMSSpider(
-        logo: item.logo,
-        name: item.name,
-        desc: item.desc,
-        api_path: item.api.path,
-        root_url: item.api.root,
-        nsfw: item.nsfw,
+      Map<String, dynamic> extraMap = {
+        'jiexiUrl': item.extra.jiexiUrl ?? '',
+        'gfw': item.extra.gfw ?? false,
+      };
+
+      // 添加 searchLimit
+      if (item.extra.searchLimit != null) {
+        extraMap['searchLimit'] = item.extra.searchLimit;
+      }
+
+      // 添加 template
+      if (item.extra.template != null) {
+        extraMap['template'] = item.extra.template;
+      }
+
+      // 如果有 JS 配置，添加到 extra 中
+      if (item.extra.js != null) {
+        extraMap['js'] = {
+          'category': item.extra.js!.category,
+          'home': item.extra.js!.home,
+          'search': item.extra.js!.search,
+          'detail': item.extra.js!.detail,
+          'parseIframe': item.extra.js!.parseIframe,
+        };
+      }
+
+      var meta = SourceMeta(
         id: item.sid,
+        name: item.name,
+        type: item.type,
+        api: item.api,
+        logo: item.logo,
+        desc: item.desc,
         status: item.status == MirrorStatus.available,
+        isNsfw: item.nsfw,
+        extra: extraMap,
       );
+
+      switch (item.type) {
+        case SourceType.universal:
+          return UniversalSpider(meta);
+        case SourceType.maccms:
+        default:
+          return MacCMSSpider(meta);
+      }
     }).toList();
     extend = result;
   }
@@ -48,24 +81,20 @@ class SpiderManage {
   /// 返回 false 可能是源已经存在过
   static bool addItem(ISpiderAdapter item) {
     var wasAdd = true;
-    if (item is MacCMSSpider) {
-      var isExist = [...extend, ...builtin].any(($item) {
-        if ($item is MacCMSSpider) {
-          // FIXME: 如果 name 相同了怎么办👀?
-          return $item.root_url == item.root_url &&
-              $item.api_path == item.api_path;
-        }
-        return false;
-      });
-      if (isExist) {
-        wasAdd = false;
-      } else {
-        extend.add(item);
-      }
+    var isExist = [...extend, ...builtin].any(($item) {
+      // Check for duplicate by API URL
+      return $item.meta.api == item.meta.api;
+    });
+
+    if (isExist) {
+      wasAdd = false;
     } else {
       extend.add(item);
     }
-    saveToCache(extend);
+
+    if (wasAdd) {
+      saveToCache(extend);
+    }
     return wasAdd;
   }
 
@@ -85,26 +114,24 @@ class SpiderManage {
   ///
   /// [full] 是否全量导出(nsfw 是否导出)
   static String export({bool full = false}) {
-    // bool isNsfw = local.read(ConstDart.is_nsfw) ?? false;
-    List<SourceJsonData> to = extend
-        .map(
-          (e) => SourceJsonData(
-            name: e.meta.name,
-            logo: e.meta.logo,
-            desc: e.meta.desc,
-            nsfw: e.isNsfw,
-            api: Api(
-              root: e.meta.domain,
-              path: (e as MacCMSSpider).api_path,
-            ),
-            id: e.id,
-            status: e.status,
-          ),
-        )
-        .toList();
+    List<Map<String, dynamic>> to = extend.map(
+      (e) {
+        return {
+          "name": e.meta.name,
+          "logo": e.meta.logo,
+          "desc": e.meta.desc,
+          "nsfw": e.meta.isNsfw,
+          "api": e.meta.api,
+          "id": e.meta.id,
+          "status": e.meta.status,
+          "type": e.meta.type.name,
+          "extra": e.meta.extra,
+        };
+      },
+    ).toList();
     if (!full) {
       to = to.where((element) {
-        return !(element.nsfw ?? false);
+        return !(element['nsfw'] ?? false);
       }).toList();
     }
     String result = jsonEncode(to);
@@ -116,27 +143,26 @@ class SpiderManage {
   /// 返回被删除的 [List<String> ids]
   static List<String> removeUnavailable(Map<String, bool> kvHash) {
     List<String> result = [];
-    List<SourceJsonData> newData = extend
+    List<SourceMeta> newData = extend
         .map((e) {
           String id = e.meta.id;
           bool status = kvHash[id] ?? e.meta.status;
-          return SourceJsonData(
+          return SourceMeta(
+            id: id,
             name: e.meta.name,
+            type: e.meta.type,
+            api: e.meta.api,
             logo: e.meta.logo,
             desc: e.meta.desc,
-            nsfw: e.isNsfw,
-            api: Api(
-              root: e.meta.domain,
-              path: (e as MacCMSSpider).api_path,
-            ),
-            id: id,
+            isNsfw: e.meta.isNsfw,
             status: status,
+            extra: e.meta.extra,
           );
         })
         .toList()
         .where((item) {
-          String id = item.id as String;
-          bool status = item.status ?? true;
+          String id = item.id;
+          bool status = item.status;
           if (!status) {
             result.add(id);
           }
@@ -144,7 +170,7 @@ class SpiderManage {
         })
         .toList();
     extend.removeWhere((e) => result.contains(e.meta.id));
-    mergeSpider(newData);
+    mergeSpiderFromMeta(newData);
     return result;
   }
 
@@ -152,47 +178,54 @@ class SpiderManage {
   static void cleanAll({bool saveToCahe = false}) {
     extend = [];
     if (saveToCahe) {
-      mergeSpider([]);
+      mergeSpiderFromMeta([]);
     }
   }
 
   /// 保存缓存
   /// [该方法只可用来保存第三方源]
-  /// 只适用于 [MacCMSSpider]
+  /// 适用于所有 ISpiderAdapter 实现
   static void saveToCache(List<ISpiderAdapter> saves) {
-    List<SourceJsonData> to = saves
-        .map(
-          (e) => SourceJsonData(
-            name: e.meta.name,
-            logo: e.meta.logo,
-            desc: e.meta.desc,
-            nsfw: e.isNsfw,
-            api: Api(
-              root: e.meta.domain,
-              path: (e as MacCMSSpider).api_path,
-            ),
-            id: e.id,
-            status: e.status,
-          ),
-        )
-        .toList();
-    mergeSpider(to);
+    List<SourceMeta> to = saves.map((e) => e.meta).toList();
+    mergeSpiderFromMeta(to);
   }
 
-  static void mergeSpider(List<SourceJsonData> data) {
+  static void mergeSpiderFromMeta(List<SourceMeta> data) {
     var output = data.map((item) {
-      var api = MirrorApiIsardModel();
-      api.root = item.api?.root ?? "";
-      api.path = item.api?.path ?? "";
-      var status = item.status ?? true;
+      var extra = MirrorExtra()
+      ..jiexiUrl = item.extra['jiexiUrl']
+      ..gfw = item.extra['gfw']
+      ..searchLimit = item.extra['searchLimit']
+      ..template = item.extra['template'];
+
+      // 如果有 JS 配置，保存到 MirrorExtra 中
+      if (item.extra.containsKey('js') && item.extra['js'] is Map) {
+        var jsMap = item.extra['js'] as Map<String, dynamic>;
+        String category = "";
+        var _category = jsMap['category'];
+        if (_category is String) {
+          category = _category;
+        } else if (_category is List) {
+          category = jsonEncode(_category);
+        }
+        extra.js = MirrorExtraJS()
+          ..category = category
+          ..home = jsMap['home'] ?? ''
+          ..search = jsMap['search'] ?? ''
+          ..detail = jsMap['detail'] ?? ''
+          ..parseIframe = jsMap['parseIframe'] ?? '';
+      }
+
       return MirrorIsarModel(
-        sid: item.id ?? Xid().toString(),
-        name: item.name ?? "",
-        logo: item.name ?? "",
-        api: api,
-        desc: item.desc ?? "",
-        nsfw: item.nsfw ?? false,
-        status: status ? MirrorStatus.available : MirrorStatus.unavailable,
+        sid: item.id,
+        name: item.name,
+        logo: item.logo,
+        api: item.api,
+        desc: item.desc,
+        nsfw: item.isNsfw,
+        status: item.status ? MirrorStatus.available : MirrorStatus.unavailable,
+        type: item.type,
+        extra: extra,
       );
     }).toList();
     IsarRepository().safeWrite(() {

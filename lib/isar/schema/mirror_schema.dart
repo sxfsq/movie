@@ -1,12 +1,25 @@
 import 'package:isar_community/isar.dart';
 import 'package:catmovie/shared/enum.dart';
+import 'package:xi/xi.dart';
 
 part 'mirror_schema.g.dart';
 
 @embedded
-class MirrorApiIsardModel {
-  late String root;
-  late String path;
+class MirrorExtraJS {
+  late String category;
+  late String home;
+  late String search;
+  late String detail;
+  late String parseIframe;
+}
+
+@embedded
+class MirrorExtra {
+  String? jiexiUrl;
+  bool? gfw;
+  int? searchLimit;
+  String? template;
+  MirrorExtraJS? js;
 }
 
 @collection
@@ -19,7 +32,8 @@ class MirrorIsarModel {
     required this.nsfw,
     required this.status,
     required this.sid,
-    this.jiexiUrl,
+    required this.type,
+    required this.extra,
   });
 
   Id id = Isar.autoIncrement;
@@ -33,10 +47,13 @@ class MirrorIsarModel {
 
   bool nsfw = false;
 
-  late MirrorApiIsardModel api;
+  late String api;
 
   @Enumerated(EnumType.ordinal)
   MirrorStatus status = MirrorStatus.unknow;
 
-  String? jiexiUrl;
+  @Enumerated(EnumType.ordinal)
+  late SourceType type;
+
+  late MirrorExtra extra;
 }

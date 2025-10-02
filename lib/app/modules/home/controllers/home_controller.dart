@@ -38,10 +38,12 @@ enum UpdateSearchHistoryType {
 }
 
 Widget kActivityIndicator = NutsActivityIndicator(
-      tickCount: 12,
-      radius: 12,
-      relativeWidth: .72,
-    );
+  tickCount: 9,
+  radius: 12,
+  relativeWidth: 1.24,
+  inactiveColor: Colors.white.withValues(alpha: 0.42),
+  activeColor: Colors.white,
+);
 
 Function showLoading(String msg) {
   EasyLoading.show(
@@ -372,6 +374,14 @@ class HomeController extends GetxController
     update();
   }
 
+  void initHapticFeedback() {
+    var __hapticFeedback = getSettingAsKeyIdent<bool>(
+      SettingsAllKey.hapticFeedback,
+      defaultValue: true,
+    );
+    boop.enabled = __hapticFeedback;
+  }
+
   @override
   void onInit() {
     protocolHandler.addListener(this);
@@ -382,6 +392,7 @@ class HomeController extends GetxController
     updateHomeData(isFirst: true);
     initCacheMirrorTableScrollControllerOffset();
     initMovieParseVipList();
+    initHapticFeedback();
     super.onInit();
   }
 
@@ -454,7 +465,7 @@ class HomeController extends GetxController
           currentCategoryerNow = lastUsed;
           update();
         }
-        if (currentCategoryerNow == null) {
+        if (currentCategoryerNow == null && currentCategoryer.isNotEmpty) {
           currentCategoryerNow = currentCategoryer.first;
           update();
         }
@@ -652,18 +663,19 @@ class HomeController extends GetxController
         } else {
           nsfw = false;
         }
-        var $url = Uri.parse(realURL);
         var msg = "将添加视频源\n名称: $name\n源地址: $realURL\n类型: ${nsfw ? '18+' : '-'}";
         var flag = await confirmAlert(msg);
         if (!flag) break;
         var $id = Xid().toString();
-        var cms = MacCMSSpider(
-          name: name,
-          nsfw: nsfw,
-          root_url: $url.origin,
-          api_path: $url.path,
+        var meta = SourceMeta(
           id: $id,
+          name: name,
+          type: SourceType.maccms,
+          api: realURL,
+          desc: nsfw ? '18+' : '',
+          isNsfw: nsfw,
         );
+        var cms = MacCMSSpider(meta);
         if (!SpiderManage.addItem(cms)) {
           await confirmAlert(
             "源已经存在了, 无法添加",

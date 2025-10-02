@@ -4,15 +4,18 @@ import 'package:after_layout/after_layout.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:catmovie/app/modules/home/controllers/home_controller.dart';
 import 'package:catmovie/app/routes/app_pages.dart';
+import 'package:catmovie/app/shared/bus.dart';
 import 'package:catmovie/app/widget/helper.dart';
 import 'package:catmovie/app/widget/k_tag.dart';
 import 'package:catmovie/app/widget/window_appbar.dart';
 import 'package:catmovie/app/widget/zoom.dart';
 import 'package:catmovie/isar/schema/history_schema.dart';
+import 'package:catmovie/shared/enum.dart';
 import 'package:catmovie/utils/boop.dart';
 import 'package:concurrent_queue/concurrent_queue.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:get/get.dart';
 import 'package:catmovie/app/extension.dart';
@@ -20,11 +23,14 @@ import 'package:isar_community/isar.dart';
 import 'package:tuple/tuple.dart';
 import 'package:xi/xi.dart';
 
-final kAllSourceMeta = SourceItemMeta(id: "6324", name: "全部", domain: "empty");
+const kNsfwFlag = "114514";
+
+final kAllSourceMeta =
+    SourceMeta(id: "6324", name: "全部", type: SourceType.maccms, api: "empty");
 
 final int kDefaultPagingSize = 20;
 
-typedef MapVideosRecord = Tuple2<SourceItemMeta, List<VideoDetail>>;
+typedef MapVideosRecord = Tuple2<SourceMeta, List<VideoDetail>>;
 
 class SearchV2 extends StatefulWidget {
   const SearchV2({super.key});
@@ -36,11 +42,11 @@ class SearchV2 extends StatefulWidget {
 class _SearchV2State extends State<SearchV2> with AfterLayoutMixin {
   final home = Get.find<HomeController>();
 
-  Map<SourceItemMeta, List<VideoDetail>> map = {};
+  Map<SourceMeta, List<VideoDetail>> map = {};
 
   // [int]  -> 当前 page-size
   // [bool] -> 是否有更多视频
-  Map<SourceItemMeta, Tuple2<int, bool>> pagingMap = {};
+  Map<SourceMeta, Tuple2<int, bool>> pagingMap = {};
 
   TextEditingController textEditingController = TextEditingController();
 
@@ -62,9 +68,9 @@ class _SearchV2State extends State<SearchV2> with AfterLayoutMixin {
     });
   }
 
-  SourceItemMeta currSource = kAllSourceMeta;
+  SourceMeta currSource = kAllSourceMeta;
 
-  List<SourceItemMeta> get sourceList {
+  List<SourceMeta> get sourceList {
     var result = map.keys.toList();
     result = result.where((item) {
       return (map[item] ?? []).isNotEmpty;
@@ -136,6 +142,11 @@ class _SearchV2State extends State<SearchV2> with AfterLayoutMixin {
 
   ScrollController scrollController = ScrollController();
 
+  /// 根据源类型获取期望的分页大小
+  int getPageSize(SourceMeta sourceMeta) {
+    return sourceMeta.searchLimit;
+  }
+
   FocusNode searchFocusNode = FocusNode();
   bool _hasFocus = true;
 
@@ -172,6 +183,16 @@ class _SearchV2State extends State<SearchV2> with AfterLayoutMixin {
   }
 
   void handleSearch(String _keyword) async {
+    if (kNsfwFlag == _keyword) {
+      var flag = getSettingAsKeyIdent<bool>(SettingsAllKey.showNsfwSetting);
+      var newFlag = !flag;
+      var msg = "绅士模式设置已${newFlag ? "显示" : "隐藏"}";
+      EasyLoading.showInfo(msg);
+      updateSetting(SettingsAllKey.showNsfwSetting, newFlag);
+      $bus.fire(ShowNsfwSettingEvent(newFlag));
+      Get.back();
+      return;
+    }
     textEditingController.text = _keyword;
     showHistory = false;
     isSearching = true;
@@ -196,7 +217,8 @@ class _SearchV2State extends State<SearchV2> with AfterLayoutMixin {
         var result = event.result as MapVideosRecord;
         if (result.item2.isNotEmpty) {
           map[result.item1] = result.item2;
-          if (result.item2.length == kDefaultPagingSize) {
+          int expectedSize = getPageSize(result.item1);
+          if (result.item2.length == expectedSize) {
             pagingMap[result.item1] = Tuple2(1, true);
           } else {
             pagingMap[result.item1] = Tuple2(1, false);
@@ -619,6 +641,8 @@ class _SearchV2State extends State<SearchV2> with AfterLayoutMixin {
                                   throw Exception("未找到对应的源");
                                 }
                                 data = await curr.getDetail(id);
+                                data = item.mergeWith(data);
+                                data.setContext(curr.meta);
                               });
                               if (!isNext) return;
                             }
@@ -803,7 +827,8 @@ class _SearchV2State extends State<SearchV2> with AfterLayoutMixin {
                       showMoreBtn = false;
                       if (mounted) setState(() {});
                       map[currSource]!.addAll(list);
-                      if (list.length == kDefaultPagingSize) {
+                      int expectedSize = getPageSize(currSource);
+                      if (list.length == expectedSize) {
                         pagingMap[currSource] = Tuple2(nextPage, true);
                       } else {
                         pagingMap[currSource] = Tuple2(nextPage, false);

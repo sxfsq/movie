@@ -1,6 +1,5 @@
 import 'package:catmovie/shared/manage.dart';
 import 'package:xi/xi.dart';
-import 'package:xi/models/mac_cms/source_data.dart';
 
 class MirrorStatusStack {
   MirrorStatusStack._internal();
@@ -25,27 +24,26 @@ class MirrorStatusStack {
   }
 
   void flash() {
-    List<SourceJsonData> data = _datas.map((e) {
+    List<SourceMeta> data = _datas.map((e) {
       bool status = e.meta.status;
       String id = e.meta.id;
       bool? bStatus = getStack(id);
       if (bStatus != null) {
         status = bStatus;
       }
-      return SourceJsonData(
+      return SourceMeta(
+        id: id,
         name: e.meta.name,
+        type: e.meta.type,
+        api: e.meta.api,
         logo: e.meta.logo,
         desc: e.meta.desc,
-        nsfw: e.isNsfw,
-        api: Api(
-          root: e.meta.domain,
-          path: (e as MacCMSSpider).api_path,
-        ),
-        id: id,
+        isNsfw: e.meta.isNsfw,
         status: status,
+        extra: e.meta.extra,
       );
     }).toList();
-    SpiderManage.mergeSpider(data);
+    SpiderManage.mergeSpiderFromMeta(data);
   }
 
   void clean() {
